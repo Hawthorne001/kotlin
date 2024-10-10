@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.incremental;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
+import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("js/js.translator/testData/incremental/invalidation")
 @TestDataPath("$PROJECT_ROOT")
+@Tag("es6")
 public class JsFirES6InvalidationPerModuleTestGenerated extends AbstractJsFirES6InvalidationPerModuleTest {
   @Test
   @TestMetadata("abstractClassWithJsExport")
@@ -106,6 +108,18 @@ public class JsFirES6InvalidationPerModuleTestGenerated extends AbstractJsFirES6
   @TestMetadata("constVals")
   public void testConstVals() {
     runTest("js/js.translator/testData/incremental/invalidation/constVals/");
+  }
+
+  @Test
+  @TestMetadata("crossModuleModifyClassAncestors")
+  public void testCrossModuleModifyClassAncestors() {
+    runTest("js/js.translator/testData/incremental/invalidation/crossModuleModifyClassAncestors/");
+  }
+
+  @Test
+  @TestMetadata("crossModuleObjectInitialization")
+  public void testCrossModuleObjectInitialization() {
+    runTest("js/js.translator/testData/incremental/invalidation/crossModuleObjectInitialization/");
   }
 
   @Test
@@ -412,6 +426,12 @@ public class JsFirES6InvalidationPerModuleTestGenerated extends AbstractJsFirES6
   @TestMetadata("mainModuleInvalidation")
   public void testMainModuleInvalidation() {
     runTest("js/js.translator/testData/incremental/invalidation/mainModuleInvalidation/");
+  }
+
+  @Test
+  @TestMetadata("modifyClassAncestors")
+  public void testModifyClassAncestors() {
+    runTest("js/js.translator/testData/incremental/invalidation/modifyClassAncestors/");
   }
 
   @Test

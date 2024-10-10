@@ -334,7 +334,7 @@ class ControlFlowGraphBuilder {
 
         // Lambdas called inline do not capture any variables, so the capture edge needs to be marked as dead.
         val captureNode = anonymousFunctionCaptureNodes.remove(anonymousFunction.symbol)
-        if (captureNode != null && anonymousFunction.inlineStatus == InlineStatus.Inline) {
+        if (captureNode != null && (anonymousFunction.inlineStatus == InlineStatus.Inline || anonymousFunction.inlineStatus == InlineStatus.CrossInline)) {
             CFGNode.killEdge(captureNode, graph.enterNode, propagateDeadness = false)
         }
 
@@ -514,7 +514,6 @@ class ControlFlowGraphBuilder {
         val name = when (klass) {
             is FirAnonymousObject -> "<anonymous object>"
             is FirRegularClass -> klass.name.asString()
-            else -> throw IllegalArgumentException("Unknown class kind: ${klass::class}")
         }
 
         val enterNode = enterGraph(klass, name, ControlFlowGraph.Kind.Class) {
@@ -1247,7 +1246,7 @@ class ControlFlowGraphBuilder {
         CFGNode.removeAllOutgoingEdges(node)
         CFGNode.addEdge(node, stub, EdgeKind.DeadForward, propagateDeadness = false)
         for ((to, edge) in edges) {
-            val kind = if (edge.kind.isBack) EdgeKind.DeadBackward else EdgeKind.DeadForward
+            val kind = if (edge.kind.isBack) EdgeKind.DeadCfgBackward else EdgeKind.DeadForward
             CFGNode.addEdge(stub, to, kind, propagateDeadness = false, label = edge.label)
             to.updateDeadStatus()
             propagateDeadnessForward(to)
@@ -1568,9 +1567,7 @@ class ControlFlowGraphBuilder {
         preferredKind: EdgeKind = EdgeKind.Forward,
         label: EdgeLabel = NormalPath,
     ) {
-        val kind = if (isDead || from.isDead || to.isDead) {
-            if (preferredKind.isBack) EdgeKind.DeadBackward else EdgeKind.DeadForward
-        } else preferredKind
+        val kind = if (isDead || from.isDead || to.isDead) preferredKind.toDead() else preferredKind
         CFGNode.addEdge(from, to, kind, propagateDeadness, label)
     }
 
@@ -1585,7 +1582,7 @@ class ControlFlowGraphBuilder {
     }
 
     private fun addBackEdge(from: CFGNode<*>, to: CFGNode<*>, isDead: Boolean = false, label: EdgeLabel = NormalPath) {
-        val kind = if (isDead || from.isDead || to.isDead) EdgeKind.DeadBackward else EdgeKind.CfgBackward
+        val kind = if (isDead || from.isDead || to.isDead) EdgeKind.DeadCfgBackward else EdgeKind.CfgBackward
         CFGNode.addEdge(from, to, kind, propagateDeadness = false, label = label)
     }
 

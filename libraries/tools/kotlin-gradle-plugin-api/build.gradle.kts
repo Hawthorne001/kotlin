@@ -1,16 +1,20 @@
+import gradle.GradlePluginVariant
+
 plugins {
     id("gradle-plugin-dependency-configuration")
     id("jps-compatible")
     id("org.jetbrains.kotlinx.binary-compatibility-validator")
+    id("gradle-plugin-api-reference")
 }
 
-configureDokkaPublication(
-    shouldLinkGradleApi = true,
-    configurePublishingToKotlinlang = true,
-) {
-    dokkaSourceSets.configureEach {
+pluginApiReference {
+    enableForGradlePluginVariants(GradlePluginVariant.values().toSet())
+    enableKotlinlangDocumentation()
+
+    failOnWarning = true
+
+    additionalDokkaConfiguration {
         reportUndocumented.set(true)
-        failOnWarning.set(true)
 
         perPackageOption {
             matchingRegex.set("org\\.jetbrains\\.kotlin\\.gradle\\.plugin\\.mpp.*")
@@ -26,6 +30,7 @@ dependencies {
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-util-klib")
     }
     commonApi(project(":kotlin-tooling-core"))
+    commonApi(project(":compiler:build-tools:kotlin-build-tools-api"))
 
     commonCompileOnly(project(":kotlin-gradle-compiler-types"))
 

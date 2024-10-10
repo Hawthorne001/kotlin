@@ -77,7 +77,6 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
             add(type, OperatorNames.SUB, withLongCoercion(::transformSub))
             add(type, OperatorNames.MUL, withLongCoercion(::transformMul))
             add(type, OperatorNames.DIV, withLongCoercion(::transformDiv))
-            add(type, OperatorNames.MOD, withLongCoercion(::transformRem))
             add(type, OperatorNames.REM, withLongCoercion(::transformRem))
         }
     }
@@ -227,8 +226,7 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
                             call.endOffset,
                             intrinsics.longToDouble.owner.returnType,
                             intrinsics.longToDouble,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = 0
+                            typeArgumentsCount = 0
                         ).apply {
                             dispatchReceiver = arg
                         })
@@ -240,8 +238,7 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
                             call.endOffset,
                             intrinsics.longToFloat.owner.returnType,
                             intrinsics.longToFloat,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = 0
+                            typeArgumentsCount = 0
                         ).apply {
                             dispatchReceiver = arg
                         })
@@ -253,8 +250,7 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
                             call.endOffset,
                             intrinsics.jsNumberToLong.owner.returnType,
                             intrinsics.jsNumberToLong,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = 1
+                            typeArgumentsCount = 0
                         ).apply {
                             putValueArgument(0, call.dispatchReceiver)
                         }

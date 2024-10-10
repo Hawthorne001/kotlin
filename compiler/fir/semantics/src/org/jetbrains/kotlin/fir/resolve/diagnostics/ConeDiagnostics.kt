@@ -275,6 +275,10 @@ class ConeTypeArgumentsNotAllowedOnPackageError(source: KtSourceElement) : ConeD
     override val reason: String get() = "Type arguments are not allowed for packages"
 }
 
+class ConeTypeArgumentsForOuterClass(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
+    override val reason: String get() = "Type arguments for outer class maybe redundant"
+}
+
 class ConeTypeArgumentsForOuterClassWhenNestedReferencedError(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
     override val reason: String get() = "Type arguments for outer class are redundant when nested class is referenced"
 }
@@ -317,6 +321,10 @@ class ConeTypeParameterInQualifiedAccess(val symbol: FirTypeParameterSymbol) : C
 
 class ConeCyclicTypeBound(val symbol: FirTypeParameterSymbol, val bounds: ImmutableList<FirTypeRef>) : ConeDiagnostic {
     override val reason: String get() = "Type parameter ${symbol.fir.name} has cyclic bounds"
+}
+
+object ConeDynamicUnsupported : ConeDiagnostic {
+    override val reason: String get() = "`dynamic` type is not allowed on this platform."
 }
 
 class ConeImportFromSingleton(val name: Name) : ConeDiagnostic {
@@ -403,4 +411,9 @@ object ConeResolutionResultOverridesOtherToPreserveCompatibility : ConeDiagnosti
 object ConeCallToDeprecatedOverrideOfHidden : ConeDiagnostic {
     override val reason: String
         get() = "Call to deprecated override of hidden"
+}
+
+class ConeNoInferTypeMismatch(val lowerType: ConeKotlinType, val upperType: ConeKotlinType) : ConeDiagnostic {
+    override val reason: String
+        get() = "(@NoInfer) Type mismatch: expected $upperType, actual $lowerType"
 }

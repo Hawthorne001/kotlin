@@ -27,25 +27,27 @@ import org.jetbrains.kotlin.ir.types.IrTypeProjection
 import org.jetbrains.kotlin.ir.types.impl.buildSimpleType
 import org.jetbrains.kotlin.ir.types.impl.toBuilder
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
+import org.jetbrains.kotlin.ir.visitors.IrTransformer
 import org.jetbrains.kotlin.name.Name
 
 private val STUB_FOR_INLINING = Name.identifier("stub_for_inlining")
 
 fun IrFunction.isStubForInline() = name == STUB_FOR_INLINING && origin == LoweredDeclarationOrigins.INLINE_LAMBDA
 
-// This lowering transforms CR passed to inline function to lambda which would be inlined
-//
-//      inline fun foo(inlineParameter: (A) -> B): B {
-//          return inlineParameter()
-//      }
-//
-//      foo(::smth) -> foo { a -> smth(a) }
-//
+/**
+ * This lowering transforms inlined callable references to lambdas. Callable reference is inlined if it's passed to a non-noinline
+ * parameter of an inline function.
+ *
+ *     inline fun foo(inlineParameter: (A) -> B): B {
+ *         return inlineParameter()
+ *     }
+ *
+ * `foo(::smth)` is transformed to `foo { a -> smth(a) }`.
+ */
 abstract class InlineCallableReferenceToLambdaPhase(
     val context: CommonBackendContext,
     protected val inlineFunctionResolver: InlineFunctionResolver,
-) : FileLoweringPass, IrElementTransformer<IrDeclarationParent?> {
+) : FileLoweringPass, IrTransformer<IrDeclarationParent?>() {
     override fun lower(irFile: IrFile) {
         irFile.transform(this, null)
     }
@@ -55,8 +57,8 @@ abstract class InlineCallableReferenceToLambdaPhase(
 
     override fun visitFunctionAccess(expression: IrFunctionAccessExpression, data: IrDeclarationParent?): IrElement {
         expression.transformChildren(this, data)
-        val function = expression.symbol.owner
-        if (inlineFunctionResolver.needsInlining(function)) {
+        if (inlineFunctionResolver.needsInlining(expression)) {
+            val function = expression.symbol.owner
             for (parameter in function.valueParameters) {
                 if (parameter.isInlineParameter()) {
                     expression.putValueArgument(parameter.index, expression.getValueArgument(parameter.index)?.transformToLambda(data))
@@ -185,10 +187,11 @@ abstract class InlineCallableReferenceToLambdaPhase(
             ).apply {
                 copyAttributes(original)
                 if (original is IrFunctionReference) {
-                    // It is required to copy value arguments if any
-                    copyValueArgumentsFrom(original, this@toLambda)
-                    // Don't need to copy the dispatch receiver because it was remapped on extension receiver
-                    dispatchReceiver = null
+                    // It is required to copy value arguments if any.
+                    // Don't need to copy the dispatch receiver because it was remapped on extension receiver.
+                    for (i in 0..<original.valueArgumentsCount) {
+                        putValueArgument(i, original.getValueArgument(i))
+                    }
                 }
                 extensionReceiver = original.dispatchReceiver ?: original.extensionReceiver
             }

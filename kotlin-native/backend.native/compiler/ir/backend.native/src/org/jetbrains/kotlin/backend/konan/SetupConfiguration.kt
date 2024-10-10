@@ -50,16 +50,6 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     put(INCLUDED_BINARY_FILES, arguments.includeBinaries.toNonNullList())
     put(NATIVE_LIBRARY_FILES, arguments.nativeLibraries.toNonNullList())
 
-    if (arguments.repositories != null) {
-        // Show the warning also if `-repo` was really specified.
-        report(
-                WARNING,
-                "'-repo' ('-r') compiler option is deprecated and will be removed in one of the future releases. " +
-                        "Please use library paths instead of library names in all compiler options such as '-library' ('-l')."
-        )
-    }
-    put(REPOSITORIES, arguments.repositories.toNonNullList())
-
     // TODO: Collect all the explicit file names into an object
     // and teach the compiler to work with temporaries and -save-temps.
 
@@ -117,6 +107,8 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
     put(PURGE_USER_LIBS, arguments.purgeUserLibs)
 
+    putIfNotNull(WRITE_DEPENDENCIES_OF_PRODUCED_KLIB_TO, arguments.writeDependenciesOfProducedKlibTo)
+
     if (arguments.verifyCompiler != null)
         put(VERIFY_COMPILER, arguments.verifyCompiler == "true")
     put(VERIFY_BITCODE, arguments.verifyBitCode)
@@ -169,6 +161,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
             kotlinSourceRoots.isNotEmpty()
                     || !arguments.includes.isNullOrEmpty()
                     || !arguments.exportedLibraries.isNullOrEmpty()
+                    || (outputKind == CompilerOutputKind.PROGRAM && arguments.libraries?.isNotEmpty() == true)
                     || outputKind.isCache
                     || arguments.checkDependencies
     )
@@ -277,7 +270,10 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     putIfNotNull(ALLOCATION_MODE, when (arguments.allocator) {
         null -> null
         "std" -> AllocationMode.STD
-        "mimalloc" -> AllocationMode.MIMALLOC
+        "mimalloc" -> {
+            report(STRONG_WARNING, "Usage of mimalloc in Kotlin/Native compiler is deprecated. Please remove -Xallocator=mimalloc compiler flag.")
+            AllocationMode.MIMALLOC
+        }
         "custom" -> AllocationMode.CUSTOM
         else -> {
             report(ERROR, "Expected 'std', 'mimalloc', or 'custom' for allocator")

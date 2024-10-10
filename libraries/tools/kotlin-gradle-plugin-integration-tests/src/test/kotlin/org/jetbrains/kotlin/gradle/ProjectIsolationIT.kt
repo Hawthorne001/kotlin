@@ -14,7 +14,7 @@ import kotlin.io.path.appendText
 class ProjectIsolationIT : KGPBaseTest() {
 
     override val defaultBuildOptions: BuildOptions
-        get() = super.defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED, projectIsolation = true)
+        get() = super.defaultBuildOptions.enableIsolatedProjects()
 
     @DisplayName("JVM project should be compatible with project isolation")
     @JvmGradlePluginTests
@@ -32,6 +32,7 @@ class ProjectIsolationIT : KGPBaseTest() {
 
     @DisplayName("project with buildSrc should be compatible with project isolation")
     @JvmGradlePluginTests
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_2) // FIXME: KT-71711
     @GradleTest
     fun testProjectIsolationWithBuildSrc(gradleVersion: GradleVersion) {
         project(

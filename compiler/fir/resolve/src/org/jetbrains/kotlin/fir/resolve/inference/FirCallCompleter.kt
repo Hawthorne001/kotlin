@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.resolve.inference
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
@@ -19,6 +20,7 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeCannotInferReceiverParameterType
 import org.jetbrains.kotlin.fir.diagnostics.ConeCannotInferValueParameterType
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
+import org.jetbrains.kotlin.fir.resolve.ResolutionMode.ArrayLiteralPosition
 import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.FirNamedReferenceWithCandidate
@@ -113,16 +115,7 @@ class FirCallCompleter(
                 runCompletionForCall(candidate, completionMode, call, initialType, analyzer)
 
                 val readOnlyConstraintStorage = candidate.system.asReadOnlyStorage()
-                if (inferenceSession !is FirPCLAInferenceSession) {
-                    // With FirPCLAInferenceSession we either have here a situation when the candidate system uses
-                    // an outer system, and completionMode is PCLA_POSTPONED_CALL (see customCompletionModeInsteadOfFull);
-                    // or, the candidate system does not use an outer system; then the PCLA common system is somewhere on top,
-                    // and after fixing type variables of this candidate we still may have some unfixed variables from the common system
-                    // TODO: KT-69040. We think some better decision is possible here, e.g. in a situation when the candidate system
-                    // does not use an outer system either the completionMode should not be FULL,
-                    // or it should not be added as a "base" system.
-                    checkStorageConstraintsAfterFullCompletion(readOnlyConstraintStorage)
-                }
+                checkStorageConstraintsAfterFullCompletion(readOnlyConstraintStorage)
 
                 val finalSubstitutor = readOnlyConstraintStorage
                     .buildAbstractResultingSubstitutor(session.typeContext) as ConeSubstitutor
@@ -156,6 +149,9 @@ class FirCallCompleter(
         // Fast path for sake of optimization
         if (storage.notFixedTypeVariables.isEmpty()) return
 
+        // We unmuted assertion only since 2.1, together with a fix for KT-69040
+        if (!session.languageVersionSettings.supportsFeature(LanguageFeature.PCLAEnhancementsIn21)) return
+
         val notFixedTypeVariablesBasedOnTypeParameters = storage.notFixedTypeVariables.filter {
             it.value.typeVariable is ConeTypeParameterBasedTypeVariable
         }
@@ -172,7 +168,7 @@ class FirCallCompleter(
         initialType: ConeKotlinType,
         resolutionMode: ResolutionMode,
     ) {
-        if (resolutionMode !is ResolutionMode.WithExpectedType || resolutionMode.fromAnnotationCallArgument) return
+        if (resolutionMode !is ResolutionMode.WithExpectedType || resolutionMode.arrayLiteralPosition == ArrayLiteralPosition.AnnotationArgument) return
         val expectedType = resolutionMode.expectedTypeRef.coneType.fullyExpandedType(session)
 
         val system = candidate.system
@@ -285,7 +281,7 @@ class FirCallCompleter(
         val expectedType = ConeClassLikeTypeImpl(
             functionalType.lookupTag,
             Array(size) { index -> if (index != size - 1) functionalType.typeArguments[index] else returnVariable.defaultType },
-            isNullable = functionalType.isNullable,
+            isMarkedNullable = functionalType.isMarkedNullable,
             functionalType.attributes
         )
         csBuilder.addSubtypeConstraint(expectedType, functionalType, ConeArgumentConstraintPosition(atom.anonymousFunction))
@@ -370,7 +366,9 @@ class FirCallCompleter(
                 else -> null
             }
 
-            val expectedReturnTypeRef = expectedReturnType?.let { lambda.returnTypeRef.resolvedTypeFromPrototype(it) }
+            val expectedReturnTypeRef = expectedReturnType?.let {
+                lambda.returnTypeRef.resolvedTypeFromPrototype(it, lambda.source?.fakeElement(KtFakeSourceElementKind.ImplicitTypeRef))
+            }
 
             when {
                 receiverType == null -> lambda.replaceReceiverParameter(null)
@@ -467,7 +465,16 @@ class FirCallCompleter(
             transformer.context.dropContextForAnonymousFunction(lambda)
 
             val returnArguments = components.dataFlowAnalyzer.returnExpressionsOfAnonymousFunction(lambda)
-                .map { ConeResolutionAtom.createRawAtom(it.expression) }
+                .map {
+                    when {
+                        // If return statements of lambda analyzed with an expected type (so, not in dependent mode)
+                        // There should be no complex atom left
+                        expectedReturnType != null && session.languageVersionSettings.supportsFeature(LanguageFeature.PCLAEnhancementsIn21) ->
+                            ConeSimpleLeafResolutionAtom(it.expression, allowUnresolvedExpression = false)
+                        else ->
+                            ConeResolutionAtom.createRawAtom(it.expression)
+                    }
+                }
 
             return ReturnArgumentsAnalysisResult(returnArguments, additionalConstraints)
         }

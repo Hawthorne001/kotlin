@@ -58,7 +58,7 @@ fun makeFirMetadataSerializerForIrClass(
         localDelegatedProperties,
         approximator,
         components,
-        FirJvmElementAwareStringTable(context.defaultTypeMapper, components, context.isEnclosedInConstructor.toList())
+        FirJvmElementAwareStringTable(context.defaultTypeMapper, components)
     )
     return FirMetadataSerializer(
         context.state.globalSerializationBindings,
@@ -326,7 +326,7 @@ private fun ConeKotlinType.collectTypeParameters(c: MutableCollection<FirTypePar
             upperBound.collectTypeParameters(c)
         }
         is ConeClassLikeType ->
-            for (projection in type.typeArguments) {
+            for (projection in typeArguments) {
                 if (projection is ConeKotlinTypeProjection) {
                     projection.type.collectTypeParameters(c)
                 }

@@ -22,6 +22,9 @@ import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
 
+/**
+ * Generates a special private member accessor for outer@this implicit value parameter in inline functions.
+ */
 class OuterThisInInlineFunctionsSpecialAccessorLowering(
     context: CommonBackendContext,
 
@@ -121,7 +124,7 @@ class OuterThisInInlineFunctionsSpecialAccessorLowering(
         }
     }
 
-    private inner class Transformer(irFile: IrFile) : IrElementTransformer<TransformerData?> {
+    private inner class Transformer(irFile: IrFile) : IrTransformer<TransformerData?>() {
         val generatedOuterThisAccessors = irFile::generatedOuterThisAccessors.getOrSetIfNull(::GeneratedOuterThisAccessors)
 
         override fun visitFunction(declaration: IrFunction, data: TransformerData?): IrStatement {

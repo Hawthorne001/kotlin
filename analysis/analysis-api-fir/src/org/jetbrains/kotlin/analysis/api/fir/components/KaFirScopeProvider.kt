@@ -161,11 +161,12 @@ internal class KaFirScopeProvider(
         val useSiteSession = analysisSession.firSession
         val scopeSession = getScopeSession()
 
+        // Create use site scope to handle signature enhancement properly
         fun getBaseUseSiteScope() = JavaScopeProvider.getUseSiteMemberScope(
             firJavaClass,
             useSiteSession,
             scopeSession,
-            memberRequiredPhase = FirResolvePhase.TYPES,
+            memberRequiredPhase = FirResolvePhase.STATUS,
         )
 
         fun getStaticScope() = JavaScopeProvider.getStaticScope(firJavaClass, useSiteSession, scopeSession)
@@ -275,7 +276,9 @@ internal class KaFirScopeProvider(
                 useCaching = true,
             )
 
-            val ktScopesWithKinds = createScopesWithKind(firImportingScopes.withIndex())
+            val firImportingScopesIndexed = firImportingScopes.asReversed().withIndex()
+
+            val ktScopesWithKinds = createScopesWithKind(firImportingScopesIndexed)
             return KaBaseScopeContext(ktScopesWithKinds, implicitReceivers = emptyList(), token)
         }
 

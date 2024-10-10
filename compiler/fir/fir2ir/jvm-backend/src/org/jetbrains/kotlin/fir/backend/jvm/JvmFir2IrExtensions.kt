@@ -51,7 +51,6 @@ class JvmFir2IrExtensions(
     override val externalOverridabilityConditions: List<IrExternalOverridabilityCondition>
         get() = listOf(IrJavaIncompatibilityRulesOverridabilityCondition())
 
-    override val classNameOverride: MutableMap<IrClass, JvmClassName> = mutableMapOf()
     override val cachedFields: CachedFieldsForObjectInstances =
         CachedFieldsForObjectInstances(IrFactoryImpl, configuration.languageVersionSettings)
 
@@ -104,10 +103,6 @@ class JvmFir2IrExtensions(
 
     override fun hasBackingField(property: FirProperty, session: FirSession): Boolean =
         property.origin is FirDeclarationOrigin.Java || Fir2IrExtensions.Default.hasBackingField(property, session)
-
-    override fun isTrueStatic(declaration: FirCallableDeclaration, session: FirSession): Boolean =
-        declaration.hasAnnotation(StandardClassIds.Annotations.jvmStatic, session) ||
-                (declaration as? FirPropertyAccessor)?.propertySymbol?.fir?.hasAnnotation(StandardClassIds.Annotations.jvmStatic, session) == true
 
     override fun initializeIrBuiltInsAndSymbolTable(irBuiltIns: IrBuiltIns, symbolTable: SymbolTable) {
         require(this.irBuiltIns == null) { "BuiltIns are already initialized" }

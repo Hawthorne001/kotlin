@@ -3,7 +3,7 @@ plugins {
     id("maven-publish")
     //id("org.jetbrains.kotlin.plugin.allopen")
     //id("org.jetbrains.kotlin.plugin.noarg")
-    //id("io.github.goooler.shadow")
+    //id("com.gradleup.shadow")
     //id("application")
     //id("org.jetbrains.kotlin.kapt")
 }
@@ -14,7 +14,6 @@ version = "1.0"
 val shouldBeJs = true
 
 kotlin {
-    // Check the new preset functions:
     jvm("jvm6") { }
 
     if (shouldBeJs) {

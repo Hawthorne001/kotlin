@@ -324,7 +324,6 @@ enum class LanguageFeature(
     ProhibitTypealiasAsCallableQualifierInImport(KOTLIN_2_1, kind = BUG_FIX), // KT-64350
     ProhibitConstructorAndSupertypeOnTypealiasWithTypeProjection(KOTLIN_2_1, kind = BUG_FIX), // KT-60305
     JsExternalPropertyParameters(KOTLIN_2_1), // KT-65965
-    ErrorAboutDataClassCopyVisibilityChange(KOTLIN_2_1, kind = BUG_FIX), // KT-11914 Deprecation phase 2
     CorrectSpecificityCheckForSignedAndUnsigned(KOTLIN_2_1, kind = OTHER), // KT-35305
     AllowAccessToProtectedFieldFromSuperCompanion(KOTLIN_2_1), // KT-39868
     CheckLambdaAgainstTypeVariableContradictionInResolution(KOTLIN_2_1, kind = OTHER), // KT-58310
@@ -332,17 +331,25 @@ enum class LanguageFeature(
     ImprovedCapturedTypeApproximationInInference(KOTLIN_2_1, kind = OTHER), // KT-64515
     ImprovedVarianceInCst(KOTLIN_2_1, kind = OTHER), // KT-68970
     InferMoreImplicationsFromBooleanExpressions(KOTLIN_2_1, kind = OTHER), // KT-64193
-    ExhaustivenessChecksOnTypeParameterBounds(KOTLIN_2_1, kind = OTHER), // KT-21908
-    ProhibitSynchronizationByValueClassesAndPrimitives(KOTLIN_2_1, kind = OTHER), // KT-67791
+    ImprovedExhaustivenessChecksIn21(KOTLIN_2_1, kind = OTHER), // KT-21908
+    ProhibitSynchronizationByValueClassesAndPrimitives(KOTLIN_2_1, kind = BUG_FIX), // KT-67791
     AllowSuperCallToJavaInterface(KOTLIN_2_1, kind = OTHER), // KT-69729
-    ProhibitJavaClassInheritingPrivateKotlinClass(KOTLIN_2_1, kind = OTHER), // KT-66328
+    ProhibitJavaClassInheritingPrivateKotlinClass(KOTLIN_2_1, kind = BUG_FIX), // KT-66328
     ProhibitReturningIncorrectNullabilityValuesFromSamConstructorLambdaOfJdkInterfaces(KOTLIN_2_1, kind = BUG_FIX), // KT-57014
+    ProhibitNothingAsCatchParameter(KOTLIN_2_1, kind = BUG_FIX), // KT-8322
+    NullableNothingInReifiedPosition(KOTLIN_2_1, kind = UNSTABLE_FEATURE), // KT-54227, KT-67675
+
     // It's not a fully blown LF, but mostly a way to manage potential unexpected semantic changes
     // See the single usage at org.jetbrains.kotlin.fir.types.ConeTypeApproximator.fastPathSkipApproximation
     AvoidApproximationOfRecursiveCapturedTypesWithNoReason(KOTLIN_2_1, kind = OTHER), // KT-69995
+    PCLAEnhancementsIn21(KOTLIN_2_1, kind = OTHER), // KT-69170
+
+    // Common feature for all non-PCLA inference enhancements in 2.1
+    InferenceEnhancementsIn21(KOTLIN_2_1, kind = OTHER), // KT-61227
 
     // 2.2
 
+    ErrorAboutDataClassCopyVisibilityChange(KOTLIN_2_2, kind = BUG_FIX), // KT-11914 Deprecation phase 2
     BreakContinueInInlineLambdas(KOTLIN_2_2), // KT-1436
     UnstableSmartcastOnDelegatedProperties(KOTLIN_2_2, kind = BUG_FIX), // KT-57417
     ReferencesToSyntheticJavaProperties(KOTLIN_2_2), // KT-8575
@@ -352,12 +359,20 @@ enum class LanguageFeature(
     ForbidReifiedTypeParametersOnTypeAliases(KOTLIN_2_2, kind = BUG_FIX), // KT-70163
     ForbidProjectionsInAnnotationProperties(KOTLIN_2_2, kind = BUG_FIX), // KT-70002
     ForbidJvmAnnotationsOnAnnotationParameters(KOTLIN_2_2, kind = BUG_FIX), // KT-25861
+    ForbidFieldAnnotationsOnAnnotationParameters(KOTLIN_2_2, kind = BUG_FIX), // KT-70233
+    ForbidParenthesizedLhsInAssignments(KOTLIN_2_2, kind = BUG_FIX), // KT-70507
+
+    // 2.3
+
+    ForbidCompanionInLocalInnerClass(KOTLIN_2_3, kind = BUG_FIX),
 
     // End of 2.* language features --------------------------------------------------
 
     ExpectActualClasses(sinceVersion = null), // KT-62885
 
     DataClassCopyRespectsConstructorVisibility(sinceVersion = null), // KT-11914 Deprecation phase 3
+
+    DirectJavaActualization(sinceVersion = null), // KT-67202
 
     // Disabled for indefinite time. See KT-53751
     IgnoreNullabilityForErasedValueParameters(sinceVersion = null, kind = BUG_FIX),
@@ -385,6 +400,8 @@ enum class LanguageFeature(
     // this feature will eventually switch this warning to an error
     ProhibitScriptTopLevelInnerClasses(sinceVersion = null, kind = OTHER),
 
+    ForbidExposureOfPrivateTypesInNonPrivateInlineFunctionsInKlibs(sinceVersion = null, kind = BUG_FIX), // KT-70916
+
     // Experimental features
 
     JsEnableExtensionFunctionInExternals(null, kind = OTHER),
@@ -392,6 +409,7 @@ enum class LanguageFeature(
     MultiPlatformProjects(sinceVersion = null),
     ProhibitComparisonOfIncompatibleClasses(sinceVersion = null, kind = BUG_FIX),
     ProhibitAllMultipleDefaultsInheritedFromSupertypes(sinceVersion = null, kind = BUG_FIX),
+    ProhibitIntersectionReifiedTypeParameter(sinceVersion = null, kind = BUG_FIX), // KT-71420
     ExplicitBackingFields(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-14663
     FunctionalTypeWithExtensionAsSupertype(sinceVersion = null),
     JsAllowValueClassesInExternals(sinceVersion = null, kind = OTHER),
@@ -420,6 +438,7 @@ enum class LanguageFeature(
     ProperFieldAccessGenerationForFieldAccessShadowedByKotlinProperty(sinceVersion = null, kind = OTHER), // KT-56386
     WhenGuards(sinceVersion = null, kind = OTHER), // KT-13626
     MultiDollarInterpolation(sinceVersion = null, kind = OTHER), // KT-2425
+    IrInlinerBeforeKlibSerialization(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-69765
     ;
 
     init {
@@ -524,6 +543,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
     KOTLIN_2_0(2, 0),
     KOTLIN_2_1(2, 1),
     KOTLIN_2_2(2, 2),
+    KOTLIN_2_3(2, 3),
     ;
 
     override val isStable: Boolean
@@ -551,18 +571,18 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
             str.split(".", "-").let { if (it.size >= 2) fromVersionString("${it[0]}.${it[1]}") else null }
 
         // Version status
-        //            1.0..1.3        1.4..1.6           1.7..2.1    2.2
+        //            1.0..1.5        1.6..1.7           1.8..2.1    2.2..2.3
         // Language:  UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
         // API:       UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
 
         @JvmField
-        val FIRST_API_SUPPORTED = KOTLIN_1_4
+        val FIRST_API_SUPPORTED = KOTLIN_1_6
 
         @JvmField
-        val FIRST_SUPPORTED = KOTLIN_1_4
+        val FIRST_SUPPORTED = KOTLIN_1_6
 
         @JvmField
-        val FIRST_NON_DEPRECATED = KOTLIN_1_7
+        val FIRST_NON_DEPRECATED = KOTLIN_1_8
 
         @JvmField
         val LATEST_STABLE = KOTLIN_2_1

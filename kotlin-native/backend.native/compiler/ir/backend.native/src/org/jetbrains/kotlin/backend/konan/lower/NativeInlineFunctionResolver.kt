@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
+import org.jetbrains.kotlin.backend.common.getCompilerMessageLocation
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesExtractionFromInlineFunctionsLowering
 import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineFunctionsLowering
@@ -13,12 +14,18 @@ import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineLamb
 import org.jetbrains.kotlin.backend.common.lower.inline.OuterThisInInlineFunctionsSpecialAccessorLowering
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.config.KlibConfigurationKeys
+import org.jetbrains.kotlin.ir.builders.Scope
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.inline.CallInlinerStrategy
 import org.jetbrains.kotlin.ir.inline.InlineFunctionResolverReplacingCoroutineIntrinsics
+import org.jetbrains.kotlin.ir.inline.InlineMode
 import org.jetbrains.kotlin.ir.inline.SyntheticAccessorLowering
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.deepCopyWithSymbols
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.getPackageFragment
@@ -36,8 +43,8 @@ internal fun IrFunction.getOrSaveLoweredInlineFunction(): IrFunction =
 // TODO: This is a bit hacky. Think about adopting persistent IR ideas.
 internal class NativeInlineFunctionResolver(
         private val generationState: NativeGenerationState,
-        override val inlineOnlyPrivateFunctions: Boolean
-) : InlineFunctionResolverReplacingCoroutineIntrinsics<Context>(generationState.context) {
+        inlineMode: InlineMode,
+) : InlineFunctionResolverReplacingCoroutineIntrinsics<Context>(generationState.context, inlineMode) {
     override fun getFunctionDeclaration(symbol: IrFunctionSymbol): IrFunction? {
         val function = super.getFunctionDeclaration(symbol) ?: return null
 
@@ -79,9 +86,9 @@ internal class NativeInlineFunctionResolver(
     private fun lower(function: IrFunction, irFile: IrFile, functionIsCached: Boolean) {
         val body = function.body ?: return
 
-        val experimentalDoubleInlining = context.config.configuration.getBoolean(KlibConfigurationKeys.EXPERIMENTAL_DOUBLE_INLINING)
+        val doubleInliningEnabled = !context.config.configuration.getBoolean(KlibConfigurationKeys.NO_DOUBLE_INLINING)
 
-        TypeOfLowering(context).lower(body, function, irFile)
+        NativeAssertionWrapperLowering(context).lower(function)
 
         NullableFieldsForLateinitCreationLowering(context).lowerWithLocalDeclarations(function)
         NullableFieldsDeclarationLowering(context).lowerWithLocalDeclarations(function)
@@ -91,12 +98,12 @@ internal class NativeInlineFunctionResolver(
 
         OuterThisInInlineFunctionsSpecialAccessorLowering(
                 context,
-                generatePublicAccessors = !experimentalDoubleInlining // Make accessors public if `SyntheticAccessorLowering` is disabled.
+                generatePublicAccessors = !doubleInliningEnabled // Make accessors public if `SyntheticAccessorLowering` is disabled.
         ).lowerWithoutAddingAccessorsToParents(function)
 
         LocalClassesInInlineLambdasLowering(context).lower(body, function)
 
-        if (!(context.config.produce.isCache || functionIsCached)) {
+        if (!context.config.produce.isCache && !functionIsCached && !doubleInliningEnabled) {
             // Do not extract local classes off of inline functions from cached libraries.
             LocalClassesInInlineFunctionsLowering(context).lower(body, function)
             LocalClassesExtractionFromInlineFunctionsLowering(context).lower(body, function)
@@ -106,8 +113,8 @@ internal class NativeInlineFunctionResolver(
         ArrayConstructorLowering(context).lower(body, function)
         WrapInlineDeclarationsWithReifiedTypeParametersLowering(context).lower(body, function)
 
-        if (experimentalDoubleInlining) {
-            NativeIrInliner(generationState, inlineOnlyPrivateFunctions = true).lower(body, function)
+        if (doubleInliningEnabled) {
+            NativeIrInliner(generationState, inlineMode = InlineMode.PRIVATE_INLINE_FUNCTIONS).lower(body, function)
             SyntheticAccessorLowering(context).lowerWithoutAddingAccessorsToParents(function)
         }
     }
@@ -115,5 +122,21 @@ internal class NativeInlineFunctionResolver(
     private fun DeclarationTransformer.lowerWithLocalDeclarations(function: IrFunction) {
         if (transformFlat(function) != null)
             error("Unexpected transformation of function ${function.dump()}")
+    }
+
+    override val callInlinerStrategy: CallInlinerStrategy = NativeCallInlinerStrategy()
+
+    inner class NativeCallInlinerStrategy : CallInlinerStrategy {
+        private lateinit var builder: NativeRuntimeReflectionIrBuilder
+        override fun at(scope: Scope, expression: IrExpression) {
+            val symbols = this@NativeInlineFunctionResolver.context.ir.symbols
+            builder = context.createIrBuilder(scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
+                    .toNativeRuntimeReflectionBuilder(symbols) { message ->
+                        this@NativeInlineFunctionResolver.context.reportCompilationError(message, getCompilerMessageLocation())
+                    }
+        }
+        override fun postProcessTypeOf(expression: IrCall, nonSubstitutedTypeArgument: IrType): IrExpression {
+            return builder.irKType(nonSubstitutedTypeArgument)
+        }
     }
 }

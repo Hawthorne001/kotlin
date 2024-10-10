@@ -1,12 +1,15 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.build.androidsdkprovisioner.ProvisioningType
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.nio.file.Paths
 
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
     id("android-sdk-provisioner")
+    id("gradle-plugin-compiler-dependency-configuration")
 }
 
 testsJar()
@@ -111,9 +114,9 @@ dependencies {
     testRuntimeOnly(libs.junit.vintage.engine)
     testImplementation(libs.junit.jupiter.params)
 
-    testRuntimeOnly(project(":compiler:tests-mutes"))
+    testApi(project(":compiler:tests-mutes:mutes-junit5"))
 
-    testCompileOnly(commonDependency("org.jetbrains.intellij.deps:asm-all"))
+    testCompileOnly(libs.intellij.asm)
 }
 
 val konanDataDir: String = System.getProperty("konanDataDirForIntegrationTests")
@@ -226,6 +229,7 @@ val gradleVersions = listOf(
     "8.7",
     "8.8",
     "8.9",
+    "8.10",
 )
 
 if (project.kotlinBuildProperties.isTeamcityBuild) {
@@ -390,13 +394,16 @@ tasks.withType<Test>().configureEach {
 
     systemProperty("kotlinVersion", rootProject.extra["kotlinVersion"] as String)
     systemProperty("runnerGradleVersion", gradle.gradleVersion)
-    systemProperty("composeSnapshotVersion", libs.versions.compose.snapshot.version.get())
-    systemProperty("composeSnapshotId", libs.versions.compose.snapshot.id.get())
+    systemProperty("composeSnapshotVersion", composeRuntimeSnapshot.versions.snapshot.version.get())
+    systemProperty("composeSnapshotId", composeRuntimeSnapshot.versions.snapshot.id.get())
 
     val installCocoapods = project.findProperty("installCocoapods") as String?
     if (installCocoapods != null) {
         systemProperty("installCocoapods", installCocoapods)
     }
+
+    // Gradle 8.10 requires running on at least JDK 17
+    javaLauncher.value(project.getToolchainLauncherFor(JdkMajorVersion.JDK_17_0)).disallowChanges()
 
     val jdk8Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_1_8)
     val jdk11Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_11_0)
@@ -404,10 +411,12 @@ tasks.withType<Test>().configureEach {
     val jdk21Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_21_0)
     val mavenLocalRepo = project.providers.systemProperty("maven.repo.local").orNull
 
-    val compileTestDestination = kotlin.target.compilations["test"].compileTaskProvider.flatMap { task ->
-        task as AbstractKotlinCompile<*>
-        task.destinationDirectory
-    }
+    val compileTestDestination = kotlin.target
+        .compilations[KotlinCompilation.TEST_COMPILATION_NAME]
+        .compileTaskProvider
+        .flatMap { task ->
+            (task as KotlinJvmCompile).destinationDirectory
+        }
     doFirst {
         systemProperty("buildGradleKtsInjectionsClasspath", compileTestDestination.get().asFile.absolutePath)
     }

@@ -15,9 +15,9 @@ import org.jetbrains.kotlin.fir.declarations.builder.FirTypeParameterBuilder
 import org.jetbrains.kotlin.fir.declarations.utils.addDefaultBoundIfNecessary
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeDynamicUnsupported
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
-import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
+import org.jetbrains.kotlin.fir.types.ConeClassifierLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
@@ -152,12 +152,11 @@ class FirTypeDeserializer(
             val lowerBound = rigidType(proto, attributes)
             val upperBound = rigidType(proto.flexibleUpperBound(typeTable)!!, attributes)
 
-            val isDynamic = lowerBound?.classId == moduleData.session.builtinTypes.nothingType.id &&
-                    upperBound?.classId == moduleData.session.builtinTypes.nullableAnyType.id
+            val isDynamic = lowerBound?.classId == StandardClassIds.Nothing &&
+                    upperBound?.classId == StandardClassIds.Any
 
-            // TODO: Consider hiding dynamic type creation under FlexibleTypeFactory for JS only (KT-67452)
             return if (isDynamic) {
-                ConeDynamicType.create(moduleData.session, lowerBound?.attributes ?: ConeAttributes.Empty)
+                flexibleTypeFactory.createDynamicType(proto, lowerBound!!, upperBound!!)
             } else {
                 flexibleTypeFactory.createFlexibleType(proto, lowerBound!!, upperBound!!)
             }
@@ -173,12 +172,24 @@ class FirTypeDeserializer(
             upperBound: ConeRigidType,
         ): ConeFlexibleType
 
+        fun createDynamicType(
+            proto: Type,
+            lowerBound: ConeRigidType,
+            upperBound: ConeRigidType,
+        ): ConeKotlinType
+
         object Default : FlexibleTypeFactory {
             override fun createFlexibleType(
                 proto: Type,
                 lowerBound: ConeRigidType,
                 upperBound: ConeRigidType,
             ): ConeFlexibleType = ConeFlexibleType(lowerBound, upperBound)
+
+            override fun createDynamicType(
+                proto: Type,
+                lowerBound: ConeRigidType,
+                upperBound: ConeRigidType,
+            ): ConeKotlinType = ConeErrorType(ConeDynamicUnsupported)
         }
     }
 
@@ -200,7 +211,7 @@ class FirTypeDeserializer(
     private fun rigidType(proto: ProtoBuf.Type, attributes: ConeAttributes): ConeRigidType? {
         val constructor = typeSymbol(proto) ?: return null
         if (constructor is ConeTypeParameterLookupTag) {
-            return ConeTypeParameterTypeImpl(constructor, isNullable = proto.nullable, attributes).let {
+            return ConeTypeParameterTypeImpl(constructor, isMarkedNullable = proto.nullable, attributes).let {
                 if (Flags.DEFINITELY_NOT_NULL_TYPE.get(proto.flags))
                     ConeDefinitelyNotNullType.create(it, moduleData.session.typeContext, avoidComprehensiveCheck = true) ?: it
                 else
@@ -229,12 +240,12 @@ class FirTypeDeserializer(
                         attributes = attributes
                     )
                 }
-                ConeClassLikeTypeImpl(newConstructor, arguments, isNullable = proto.nullable, attributes)
+                ConeClassLikeTypeImpl(newConstructor, arguments, isMarkedNullable = proto.nullable, attributes)
             }
             Flags.SUSPEND_TYPE.get(proto.flags) -> {
                 createSuspendFunctionType(constructor, arguments, isNullable = proto.nullable, attributes)
             }
-            else -> ConeClassLikeTypeImpl(constructor, arguments, isNullable = proto.nullable, attributes)
+            else -> ConeClassLikeTypeImpl(constructor, arguments, isMarkedNullable = proto.nullable, attributes)
         }
 
         val abbreviatedType = proto.abbreviatedType(typeTable)?.let { rigidType(it, attributes) }

@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.serialization
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.builtins.functions.isBuiltin
+import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.config.LanguageVersionSettings
@@ -59,6 +60,7 @@ import org.jetbrains.kotlin.metadata.serialization.Interner
 import org.jetbrains.kotlin.metadata.serialization.MutableTypeTable
 import org.jetbrains.kotlin.metadata.serialization.MutableVersionRequirementTable
 import org.jetbrains.kotlin.name.*
+import org.jetbrains.kotlin.protobuf.ByteString
 import org.jetbrains.kotlin.protobuf.GeneratedMessageLite
 import org.jetbrains.kotlin.resolve.RequireKotlinConstants
 import org.jetbrains.kotlin.serialization.deserialization.ProtoEnumFlags
@@ -66,6 +68,7 @@ import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.utils.addIfNotNull
+import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.mapToIndex
 
@@ -84,41 +87,74 @@ class FirElementSerializer private constructor(
 ) {
     private val contractSerializer = FirContractSerializer()
     private val providedDeclarationsService = session.providedDeclarationsForMetadataService
+    private val stdLibCompilation = languageVersionSettings.getFlag(AnalysisFlags.stdlibCompilation)
 
     private var metDefinitelyNotNullType: Boolean = false
 
     fun packagePartProto(file: FirFile, actualizedExpectDeclarations: Set<FirDeclaration>?): ProtoBuf.Package.Builder {
         val builder = ProtoBuf.Package.newBuilder()
 
-        fun addDeclaration(declaration: FirDeclaration, onUnsupportedDeclaration: (FirDeclaration) -> Unit) {
-            if (declaration is FirMemberDeclaration) {
-                if (!declaration.isNotExpectOrShouldBeSerialized(actualizedExpectDeclarations)) return
-                if (!declaration.isNotPrivateOrShouldBeSerialized(produceHeaderKlib)) return
-                when (declaration) {
-                    is FirProperty -> propertyProto(declaration)?.let { builder.addProperty(it) }
-                    is FirSimpleFunction -> functionProto(declaration)?.let { builder.addFunction(it) }
-                    is FirTypeAlias -> typeAliasProto(declaration)?.let { builder.addTypeAlias(it) }
-                    else -> onUnsupportedDeclaration(declaration)
-                }
-            } else {
-                onUnsupportedDeclaration(declaration)
-            }
-        }
-
         extension.processFile(file) {
             for (declaration in file.declarations) {
-                addDeclaration(declaration) {}
+                builder.addDeclarationProto(declaration, actualizedExpectDeclarations) {}
             }
         }
 
-        val packageFqName = file.packageFqName
+        return finalizePackagePartProto(file.packageFqName, builder, actualizedExpectDeclarations)
+    }
 
-        // TODO: figure out how to extract all file dependent processing from `serializePackage`
+    @RequiresOptIn(level = RequiresOptIn.Level.ERROR)
+    annotation class SensitiveApi
+
+    /**
+     * This method doesn't use `extension.constValueProvider`, so if there is a provider, then
+     *   constants might be computed incorrectly
+     */
+    @SensitiveApi
+    fun packagePartProto(
+        packageFqName: FqName,
+        declarations: List<FirDeclaration>,
+        actualizedExpectDeclarations: Set<FirDeclaration>?
+    ): ProtoBuf.Package.Builder {
+        require(extension.constValueProvider == null) {
+            "constValueProvider cannot work without file. Please use the `packagePartProto` overload which accepts FirFile"
+        }
+        val builder = ProtoBuf.Package.newBuilder()
+        for (declaration in declarations) {
+            builder.addDeclarationProto(declaration, actualizedExpectDeclarations) {}
+        }
+        return finalizePackagePartProto(packageFqName, builder, actualizedExpectDeclarations)
+    }
+
+    private fun ProtoBuf.Package.Builder.addDeclarationProto(
+        declaration: FirDeclaration,
+        actualizedExpectDeclarations: Set<FirDeclaration>?,
+        onUnsupportedDeclaration: (FirDeclaration) -> Unit,
+    ) {
+        if (declaration is FirMemberDeclaration) {
+            if (!declaration.isNotExpectOrShouldBeSerialized(actualizedExpectDeclarations)) return
+            if (!declaration.isNotPrivateOrShouldBeSerialized(produceHeaderKlib)) return
+            when (declaration) {
+                is FirProperty -> propertyProto(declaration)?.let { this.addProperty(it) }
+                is FirSimpleFunction -> functionProto(declaration)?.let { this.addFunction(it) }
+                is FirTypeAlias -> typeAliasProto(declaration)?.let { this.addTypeAlias(it) }
+                else -> onUnsupportedDeclaration(declaration)
+            }
+        } else {
+            onUnsupportedDeclaration(declaration)
+        }
+    }
+
+    private fun finalizePackagePartProto(
+        packageFqName: FqName,
+        builder: ProtoBuf.Package.Builder,
+        actualizedExpectDeclarations: Set<FirDeclaration>?,
+    ): ProtoBuf.Package.Builder {
         extension.serializePackage(packageFqName, builder)
         // Next block will process declarations from plugins.
         // Such declarations don't belong to any file, so there is no need to call `extension.processFile`.
         for (declaration in providedDeclarationsService.getProvidedTopLevelDeclarations(packageFqName, scopeSession)) {
-            addDeclaration(declaration) {
+            builder.addDeclarationProto(declaration, actualizedExpectDeclarations) {
                 error("Unsupported top-level declaration type: ${it.render()}")
             }
         }
@@ -164,7 +200,7 @@ class FirElementSerializer private constructor(
         val classId = classSymbol.classId
         if (classId != StandardClassIds.Any && classId != StandardClassIds.Nothing) {
             // Special classes (Any, Nothing) have no supertypes
-            for (superTypeRef in klass.superTypeRefs) {
+            for (superTypeRef in extension.getClassSupertypes(klass)) {
                 if (useTypeTable()) {
                     builder.addSupertypeId(typeId(superTypeRef))
                 } else {
@@ -306,7 +342,7 @@ class FirElementSerializer private constructor(
                 plugin.registerProtoExtensions(klass.symbol, stringTable, protoRegistrar)
             }
         }
-
+        builder.serializeCompilerPluginMetadata(klass, ProtoBuf.Class.Builder::addCompilerPluginData)
         return builder
     }
 
@@ -331,12 +367,7 @@ class FirElementSerializer private constructor(
             builder.flags = flags
         }
 
-        val name = script.name.let {
-            if (it.isSpecial) {
-                NameUtils.getScriptNameForFile(it.asStringStripSpecialMarkers().removePrefix("script-"))
-            } else it
-        }
-        val classId = ClassId(script.symbol.fqName.parentOrNull() ?: FqName.ROOT, name)
+        val classId = scriptClassId(script)
 
         builder.fqName = getClassifierId(classId)
 
@@ -395,7 +426,6 @@ class FirElementSerializer private constructor(
 
         return builder
     }
-
 
     /*
      * Order of nested classifiers:
@@ -581,6 +611,7 @@ class FirElementSerializer private constructor(
         }
 
         extension.serializeProperty(property, builder, versionRequirementTable, local)
+        builder.serializeCompilerPluginMetadata(property, ProtoBuf.Property.Builder::addCompilerPluginData)
 
         return builder
     }
@@ -679,6 +710,8 @@ class FirElementSerializer private constructor(
             }
         }
 
+        builder.serializeCompilerPluginMetadata(function, ProtoBuf.Function.Builder::addCompilerPluginData)
+
         return builder
     }
 
@@ -743,6 +776,7 @@ class FirElementSerializer private constructor(
         }
 
         extension.serializeTypeAlias(typeAlias, builder)
+        builder.serializeCompilerPluginMetadata(typeAlias, ProtoBuf.TypeAlias.Builder::addCompilerPluginData)
 
         return builder
     }
@@ -782,7 +816,7 @@ class FirElementSerializer private constructor(
         }
 
         extension.serializeConstructor(constructor, builder, local)
-
+        builder.serializeCompilerPluginMetadata(constructor, ProtoBuf.Constructor.Builder::addCompilerPluginData)
         return builder
     }
 
@@ -794,7 +828,15 @@ class FirElementSerializer private constructor(
     ): ProtoBuf.ValueParameter.Builder = whileAnalysing(session, parameter) {
         val builder = ProtoBuf.ValueParameter.newBuilder()
 
-        val declaresDefaultValue = function.itOrExpectHasDefaultParameterValue(index)
+        val declaresDefaultValue = if (
+            stdLibCompilation &&
+            function is FirConstructor &&
+            function.returnTypeRef.coneType.classId == StandardClassIds.Enum
+        ) {
+            false
+        } else {
+            function.itOrExpectHasDefaultParameterValue(index)
+        }
 
         val flags = Flags.getValueParameterFlags(
             additionalAnnotations.isNotEmpty()
@@ -817,8 +859,11 @@ class FirElementSerializer private constructor(
         }
 
         if (parameter.isVararg) {
-            val varargElementType = parameter.returnTypeRef.coneType.varargElementType()
-                .withAttributes(parameter.returnTypeRef.annotations.computeTypeAttributes(session, shouldExpandTypeAliases = false))
+            val delegatedTypeAttrs = (parameter.returnTypeRef as? FirResolvedTypeRef)?.delegatedTypeRef?.coneTypeOrNull?.attributes
+            val varargElementType = parameter.returnTypeRef.coneType.varargElementType().applyIf(delegatedTypeAttrs != null) {
+                withAttributes(delegatedTypeAttrs!!)
+            }
+
             if (useTypeTable()) {
                 builder.varargElementTypeId = typeId(varargElementType)
             } else {
@@ -1019,7 +1064,14 @@ class FirElementSerializer private constructor(
         }
 
         val extensionAttributes = mutableListOf<ConeAttribute<*>>()
-        for (attribute in type.attributes) {
+        // KT-67474: In K1, iteration order of `type.attributes` is the following: 1) custom attrs, then 2) builtin attrs;
+        //   see it in `Annotations.withExtensionFunctionAnnotation` in functionTypes.kt
+        // In K2, relevant iteration order of ArrayMap is defined by order of registration, defined by initialization order of the following properties:
+        // - `ConeAttributes.WithExtensionFunctionType` in ConeAttributes.kt and
+        // - `ConeAttributes.custom` in CustomAnnotationTypeAttribute.kt
+        // To put custom attrs before builtin ones, as K1 does, the following partial sorting is used.
+        val sortedAttributes = type.attributes.sortedBy { it !is CustomAnnotationTypeAttribute }
+        for (attribute in sortedAttributes) {
             when {
                 attribute is CustomAnnotationTypeAttribute -> typeAnnotations.addAll(attribute.annotations.nonSourceAnnotations(session))
                 attribute.key in CompilerConeAttributes.classIdByCompilerAttributeKey ->
@@ -1047,7 +1099,7 @@ class FirElementSerializer private constructor(
                 this.coneType = ConeClassLikeTypeImpl(
                     lookupTag,
                     emptyArray(),
-                    isNullable = false
+                    isMarkedNullable = false
                 )
             }
             argumentMapping = FirEmptyAnnotationArgumentMapping
@@ -1063,7 +1115,7 @@ class FirElementSerializer private constructor(
             buildAnnotation {
                 annotationTypeRef = buildResolvedTypeRef {
                     this.coneType = classId.constructClassLikeType(
-                        emptyArray(), isNullable = false
+                        emptyArray(), isMarkedNullable = false
                     )
                 }
                 this.argumentMapping = argumentMapping
@@ -1247,7 +1299,16 @@ class FirElementSerializer private constructor(
     }
 
     private fun getClassifierId(declaration: FirClassLikeDeclaration): Int =
-        stringTable.getFqNameIndex(declaration)
+        when (val containingScriptSymbol = declaration.containingScriptSymbolAttr) {
+            null -> stringTable.getFqNameIndex(declaration)
+            else -> containingScriptSymbol.getScriptClassId(declaration)
+        }
+
+    private fun FirScriptSymbol.getScriptClassId(declaration: FirClassLikeDeclaration): Int {
+        val scriptClassClassId = declaration.symbol.classId.relativeClassName.pathSegments()
+            .fold(scriptClassId(fir)) { acc, n -> acc.createNestedClassId(n) }
+        return stringTable.getQualifiedClassNameIndex(scriptClassClassId)
+    }
 
     private fun getClassifierId(classId: ClassId): Int =
         stringTable.getQualifiedClassNameIndex(classId)
@@ -1393,4 +1454,26 @@ class FirElementSerializer private constructor(
             return versionRequirementTable[requirement]
         }
     }
+
+    private inline fun <M : GeneratedMessageLite.ExtendableMessage<M>, B : GeneratedMessageLite.Builder<M, B>> B.serializeCompilerPluginMetadata(
+        declaration: FirDeclaration,
+        addCompilerPluginData: B.(ProtoBuf.CompilerPluginData.Builder) -> B
+    ) {
+        extension.additionalMetadataProvider?.findMetadataExtensionsFor(declaration)?.forEach { (pluginId, data) ->
+            val pluginData = ProtoBuf.CompilerPluginData.newBuilder().apply {
+                this.pluginId = stringTable.getStringIndex(pluginId)
+                this.data = ByteString.copyFrom(data)
+            }
+            addCompilerPluginData(pluginData)
+        }
+    }
+}
+
+internal fun scriptClassId(script: FirScript): ClassId {
+    val name = script.name.let {
+        if (it.isSpecial) {
+            NameUtils.getScriptNameForFile(it.asStringStripSpecialMarkers().removePrefix("script-"))
+        } else it
+    }
+    return ClassId(script.symbol.fqName.parentOrNull() ?: FqName.ROOT, name)
 }

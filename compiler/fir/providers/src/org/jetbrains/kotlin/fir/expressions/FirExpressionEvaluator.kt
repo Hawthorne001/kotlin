@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
@@ -317,7 +316,6 @@ object FirExpressionEvaluator {
             val result = when (booleanOperatorExpression.kind) {
                 LogicOperationKind.AND -> leftBoolean && rightBoolean
                 LogicOperationKind.OR -> leftBoolean || rightBoolean
-                else -> error("Boolean logic expression of a kind \"${booleanOperatorExpression.kind}\" is not supported in compile time evaluation")
             }
 
             return result.toConstExpression(ConstantValueKind.Boolean, booleanOperatorExpression).wrap()
@@ -511,11 +509,29 @@ private fun ConstantValueKind.convertToGivenKind(value: Any?): Any? {
         ConstantValueKind.Int -> (value as Number).toInt()
         ConstantValueKind.Long -> (value as Number).toLong()
         ConstantValueKind.Short -> (value as Number).toShort()
-        ConstantValueKind.UnsignedByte -> (value as Number).toLong().toUByte()
-        ConstantValueKind.UnsignedShort -> (value as Number).toLong().toUShort()
-        ConstantValueKind.UnsignedInt -> (value as Number).toLong().toUInt()
-        ConstantValueKind.UnsignedLong -> (value as Number).toLong().toULong()
-        ConstantValueKind.UnsignedIntegerLiteral -> (value as Number).toLong().toULong()
+        ConstantValueKind.UnsignedByte -> {
+            if (value is UByte) value
+            else (value as Number).toLong().toUByte()
+        }
+        ConstantValueKind.UnsignedShort -> {
+            if (value is UShort) value
+            else (value as Number).toLong().toUShort()
+        }
+        ConstantValueKind.UnsignedInt -> {
+            if (value is UInt) value
+            else (value as Number).toLong().toUInt()
+        }
+        ConstantValueKind.UnsignedLong -> {
+            if (value is ULong) value
+            else (value as Number).toLong().toULong()
+        }
+        ConstantValueKind.UnsignedIntegerLiteral -> {
+            when (value) {
+                is UInt -> value.toULong()
+                is ULong -> value
+                else -> (value as Number).toLong().toULong()
+            }
+        }
         else -> null
     }
 }

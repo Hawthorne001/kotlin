@@ -26,6 +26,8 @@ import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
 
 /**
+ * Wraps top level inline function to access through them from inline functions (legacy lowering).
+ *
  * TODO: Drop in favor of [SyntheticAccessorLowering].
  */
 class LegacySyntheticAccessorLowering(private val context: CommonBackendContext) : BodyLoweringPass {
@@ -135,7 +137,7 @@ class LegacySyntheticAccessorLowering(private val context: CommonBackendContext)
         val copier = FunctionCopier(fileHash)
         val newFunction = copier.copy(this)
 
-        val irCall = IrCallImpl(startOffset, endOffset, newFunction.returnType, symbol, typeParameters.size, valueParameters.size)
+        val irCall = IrCallImpl(startOffset, endOffset, newFunction.returnType, symbol, typeParameters.size)
 
         newFunction.typeParameters.forEachIndexed { i, tp ->
             irCall.putTypeArgument(i, tp.defaultType)
@@ -164,7 +166,7 @@ class LegacySyntheticAccessorLowering(private val context: CommonBackendContext)
 
             functionMap[callee]?.let { newFunction ->
                 val newExpression = expression.run {
-                    IrCallImpl(startOffset, endOffset, type, newFunction.symbol, typeArgumentsCount, valueArgumentsCount, origin)
+                    IrCallImpl(startOffset, endOffset, type, newFunction.symbol, typeArgumentsCount, origin)
                 }
 
                 newExpression.copyTypeArgumentsFrom(expression)
@@ -187,7 +189,7 @@ class LegacySyntheticAccessorLowering(private val context: CommonBackendContext)
             functionMap[callee]?.let { newFunction ->
                 val newExpression = expression.run {
                     // TODO: What has to be done with `reflectionTarget`?
-                    IrFunctionReferenceImpl(startOffset, endOffset, type, newFunction.symbol, typeArgumentsCount, valueArgumentsCount)
+                    IrFunctionReferenceImpl(startOffset, endOffset, type, newFunction.symbol, typeArgumentsCount)
                 }
 
                 newExpression.copyTypeArgumentsFrom(expression)

@@ -14,12 +14,9 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.MutedOption
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.RunnerWithExecutor
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.NoopTestRunner
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.Runner
-import org.jetbrains.kotlin.native.executors.ExecuteRequest
-import org.jetbrains.kotlin.native.executors.RunProcessResult
 import org.jetbrains.kotlin.native.executors.runProcess
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.URLClassLoader
@@ -199,7 +196,7 @@ internal class BaseDirs(val testBuildDir: File)
 /**
  * Timeouts.
  */
-internal class Timeouts(val executionTimeout: Duration) {
+class Timeouts(val executionTimeout: Duration) {
     companion object {
         val DEFAULT_EXECUTION_TIMEOUT: Duration get() = 10.minutes
     }
@@ -302,8 +299,13 @@ internal enum class TestGroupCreation {
     }
 }
 
-internal enum class BinaryLibraryKind {
+enum class BinaryLibraryKind {
     STATIC, DYNAMIC
+}
+
+enum class KlibIrInlinerMode {
+    OFF,
+    ON,
 }
 
 internal enum class CInterfaceMode(val compilerFlag: String) {

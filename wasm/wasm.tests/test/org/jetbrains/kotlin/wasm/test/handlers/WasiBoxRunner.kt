@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.wasm.test.tools.WasmVM
 import java.io.File
 
+// TODO reduce amount of duplicated code between this class and WasmBoxRunner
 class WasiBoxRunner(
     testServices: TestServices
 ) : AbstractWasmArtifactsCollector(testServices) {
@@ -64,7 +65,7 @@ class WasiBoxRunner(
             val dir = File(outputDirBase, mode)
             dir.mkdirs()
 
-            writeCompilationResult(res, dir, baseFileName)
+            writeCompilationResult(res, dir, baseFileName, false)
 
             File(dir, "test.mjs").writeText(testWasi)
             val (jsFilePaths) = collectedJsArtifacts.saveJsArtifacts(dir)
@@ -93,9 +94,11 @@ class WasiBoxRunner(
 
             processExceptions(exceptions)
 
+            // TODO KT-71504: support size tests for WASI target and ignoring utility files
+            val filesToIgnoreInSizeChecks = emptySet<File>()
             when (mode) {
-                "dce" -> checkExpectedDceOutputSize(debugMode, testFileText, dir)
-                "optimized" -> checkExpectedOptimizedOutputSize(debugMode, testFileText, dir)
+                "dce" -> checkExpectedDceOutputSize(debugMode, testFileText, dir, filesToIgnoreInSizeChecks)
+                "optimized" -> checkExpectedOptimizedOutputSize(debugMode, testFileText, dir, filesToIgnoreInSizeChecks)
             }
         }
 

@@ -18,6 +18,7 @@ import kotlin.io.path.*
 import kotlin.test.assertTrue
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
+import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
 import org.jetbrains.kotlin.gradle.testbase.TestVersions.ThirdPartyDependencies.GRADLE_ENTERPRISE_PLUGIN_VERSION
 import org.jetbrains.kotlin.gradle.util.BuildOperationRecordImpl
 import org.jetbrains.kotlin.gradle.util.readJsonReport
@@ -353,7 +354,7 @@ class BuildReportsIT : KGPBaseTest() {
             "simpleProject", gradleVersion,
             buildOptions = defaultBuildOptions.copy(
                 logLevel = LogLevel.DEBUG,
-                projectIsolation = true,
+                isolatedProjects = IsolatedProjectsMode.ENABLED,
                 configurationCache = BuildOptions.ConfigurationCacheValue.UNSPECIFIED,
                 buildReport = listOf(BuildReportType.FILE, BuildReportType.JSON)
             )
@@ -662,7 +663,7 @@ class BuildReportsIT : KGPBaseTest() {
             "incrementalMultiproject", gradleVersion,
             buildOptions = defaultBuildOptions.copy(
                 logLevel = LogLevel.DEBUG,
-                projectIsolation = true,
+                isolatedProjects = IsolatedProjectsMode.ENABLED,
                 configurationCache = BuildOptions.ConfigurationCacheValue.UNSPECIFIED,
                 buildReport = listOf(BuildReportType.BUILD_SCAN)
             )
@@ -671,6 +672,53 @@ class BuildReportsIT : KGPBaseTest() {
                 "compileKotlin", "--scan"
             ) {
                 assertOutputContains("Build report creation in the build scan format is not yet supported when the isolated projects feature is enabled.")
+            }
+        }
+    }
+
+    @DisplayName("for build scan with develocity plugin")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_8_4
+    )
+    @GradleTest
+    fun testBuildScanReportWithDevelocityPlugin(gradleVersion: GradleVersion) {
+        project(
+            "incrementalMultiproject", gradleVersion,
+            buildOptions = defaultBuildOptions.copy(
+                logLevel = LogLevel.DEBUG,
+                configurationCache = BuildOptions.ConfigurationCacheValue.UNSPECIFIED,
+                buildReport = listOf(BuildReportType.BUILD_SCAN)
+            )
+        ) {
+            settingsGradle.modify {
+                """
+                ${
+                    it.replace(
+                        "id(\"org.jetbrains.kotlin.test.gradle-warnings-detector\")",
+                        """
+                               id("org.jetbrains.kotlin.test.gradle-warnings-detector")
+                               id "com.gradle.develocity" version "${TestVersions.ThirdPartyDependencies.GRADLE_DEVELOCITY_PLUGIN_VERSION}"
+                        """.trimIndent()
+                    )
+                }
+                        
+                develocity {
+                    buildScan {
+                        termsOfUseAgree = "yes"
+                        termsOfUseUrl = "https://gradle.com/terms-of-service"
+
+                        tag "test"
+                    }
+                }
+                """.trimIndent()
+            }
+            build(
+                "compileKotlin", "--scan"
+            ) {
+                assertOutputDoesNotContain("The build scan was not published due to a configuration problem.")
+                assertOutputDoesNotContain("The following functionality has been deprecated and will be removed in the next major release of the Develocity Gradle plugin.")
+                assertOutputContains("Build metrics are stored into build scan for")
+                assertOutputContains("[com.gradle.develocity.agent.gradle.DevelocityPlugin] Publishing build scan...")
             }
         }
     }

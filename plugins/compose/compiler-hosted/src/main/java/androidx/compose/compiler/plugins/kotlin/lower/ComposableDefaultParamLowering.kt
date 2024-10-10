@@ -85,11 +85,10 @@ import org.jetbrains.kotlin.name.Name
  */
 class ComposableDefaultParamLowering(
     context: IrPluginContext,
-    symbolRemapper: DeepCopySymbolRemapper,
     metrics: ModuleMetrics,
     stabilityInferencer: StabilityInferencer,
     featureFlags: FeatureFlags,
-) : AbstractComposeLowering(context, symbolRemapper, metrics, stabilityInferencer, featureFlags) {
+) : AbstractComposeLowering(context, metrics, stabilityInferencer, featureFlags) {
     private val originalToTransformed = mutableMapOf<IrSimpleFunction, IrSimpleFunction>()
 
     override fun lower(module: IrModuleFragment) {
@@ -198,7 +197,7 @@ class ComposableDefaultParamLowering(
                 valueParameters.any { it.defaultValue != null } // has a default parameter
 
     private fun makeDefaultParameterWrapper(
-        source: IrSimpleFunction
+        source: IrSimpleFunction,
     ): IrSimpleFunction {
         val wrapper = context.irFactory.createSimpleFunction(
             startOffset = source.startOffset,
@@ -218,22 +217,22 @@ class ComposableDefaultParamLowering(
         )
         wrapper.copyAnnotationsFrom(source)
         wrapper.copyParametersFrom(source)
+
         wrapper.valueParameters.forEach {
             it.defaultValue?.transformChildrenVoid()
         }
+
         // move receiver parameters to value parameters
         val dispatcherReceiver = wrapper.dispatchReceiverParameter
-        var index = wrapper.valueParameters.size
         if (dispatcherReceiver != null) {
-            dispatcherReceiver.index = index++
-            wrapper.valueParameters += dispatcherReceiver
             wrapper.dispatchReceiverParameter = null
+            wrapper.valueParameters += dispatcherReceiver
         }
+
         val extensionReceiver = wrapper.extensionReceiverParameter
         if (extensionReceiver != null) {
-            extensionReceiver.index = index
-            wrapper.valueParameters += extensionReceiver
             wrapper.extensionReceiverParameter = null
+            wrapper.valueParameters += extensionReceiver
         }
 
         wrapper.body = DeclarationIrBuilder(

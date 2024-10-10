@@ -7,12 +7,10 @@ package org.jetbrains.kotlin.backend.common.lower.inline
 
 import org.jetbrains.kotlin.backend.common.BackendContext
 import org.jetbrains.kotlin.backend.common.compilationException
-import org.jetbrains.kotlin.backend.common.descriptors.synthesizedString
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
-import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -52,7 +50,6 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
 
         protected const val RECEIVER_VALUE_PARAMETER_NAME = "\$this"
         protected const val SETTER_VALUE_PARAMETER_NAME = "<set-?>"
-        protected const val CONSTRUCTOR_MARKER_PARAMETER_NAME = "constructor_marker"
 
         const val PROPERTY_MARKER = "p"
 
@@ -138,49 +135,9 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
         }
     }
 
-    protected fun IrConstructor.makeConstructorAccessor(
+    protected abstract fun IrConstructor.makeConstructorAccessor(
         originForConstructorAccessor: IrDeclarationOrigin = IrDeclarationOrigin.SYNTHETIC_ACCESSOR
-    ): IrConstructor {
-        val source = this
-
-        return factory.buildConstructor {
-            origin = originForConstructorAccessor
-            name = source.name
-            visibility = DescriptorVisibilities.PUBLIC
-        }.also { accessor ->
-            accessor.parent = source.parent
-
-            accessor.copyTypeParametersFrom(source, IrDeclarationOrigin.SYNTHETIC_ACCESSOR)
-            accessor.copyValueParametersToStatic(source, IrDeclarationOrigin.SYNTHETIC_ACCESSOR)
-            if (source.constructedClass.modality == Modality.SEALED) {
-                for (accessorValueParameter in accessor.valueParameters) {
-                    accessorValueParameter.annotations = emptyList()
-                }
-            }
-
-            accessor.returnType = source.returnType.remapTypeParameters(source, accessor)
-
-            accessor.addValueParameter(
-                CONSTRUCTOR_MARKER_PARAMETER_NAME.synthesizedString,
-                context.ir.symbols.defaultConstructorMarker.defaultType.makeNullable(),
-                IrDeclarationOrigin.DEFAULT_CONSTRUCTOR_MARKER,
-            )
-
-            accessor.body = context.irFactory.createBlockBody(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                listOf(createConstructorCall(accessor, source.symbol))
-            )
-        }
-    }
-
-    private fun createConstructorCall(accessor: IrConstructor, targetSymbol: IrConstructorSymbol) =
-        IrDelegatingConstructorCallImpl.fromSymbolOwner(
-            UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-            context.irBuiltIns.unitType,
-            targetSymbol, targetSymbol.owner.parentAsClass.typeParameters.size + targetSymbol.owner.typeParameters.size
-        ).also {
-            copyAllParamsToArgs(it, accessor)
-        }
+    ): IrFunction
 
     protected abstract fun accessorModality(parent: IrDeclarationParent): Modality
 
@@ -216,7 +173,7 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
             accessor.startOffset,
             accessor.endOffset,
             accessor.returnType,
-            targetSymbol, targetSymbol.owner.typeParameters.size,
+            targetSymbol,
             superQualifierSymbol = superQualifierSymbol
         ).also {
             copyAllParamsToArgs(it, accessor)
@@ -233,7 +190,7 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
 
     private fun makeGetterAccessor(
         field: IrField,
-        parent: IrClass,
+        parent: IrDeclarationParent,
         superQualifierSymbol: IrClassSymbol?
     ): IrSimpleFunction =
         context.irFactory.buildFun {
@@ -250,7 +207,7 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
             if (!field.isStatic) {
                 // Accessors are always to one's own fields.
                 accessor.addValueParameter(
-                    RECEIVER_VALUE_PARAMETER_NAME, parent.defaultType, IrDeclarationOrigin.SYNTHETIC_ACCESSOR
+                    RECEIVER_VALUE_PARAMETER_NAME, (parent as IrClass).defaultType, IrDeclarationOrigin.SYNTHETIC_ACCESSOR
                 )
             }
 
@@ -288,7 +245,7 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
 
     private fun makeSetterAccessor(
         field: IrField,
-        parent: IrClass,
+        parent: IrDeclarationParent,
         superQualifierSymbol: IrClassSymbol?
     ): IrSimpleFunction =
         context.irFactory.buildFun {
@@ -305,7 +262,7 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
             if (!field.isStatic) {
                 // Accessors are always to one's own fields.
                 accessor.addValueParameter(
-                    RECEIVER_VALUE_PARAMETER_NAME, parent.defaultType, IrDeclarationOrigin.SYNTHETIC_ACCESSOR
+                    RECEIVER_VALUE_PARAMETER_NAME, (parent as IrClass).defaultType, IrDeclarationOrigin.SYNTHETIC_ACCESSOR
                 )
             }
 
@@ -339,15 +296,15 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
         )
     }
 
-    private fun extractFieldAndParent(expression: IrFieldAccessExpression, scopeInfo: ScopeInfo): Pair<IrField, IrClass> {
+    private fun extractFieldAndParent(expression: IrFieldAccessExpression, scopeInfo: ScopeInfo): Pair<IrField, IrDeclarationParent> {
         val dispatchReceiverClassSymbol = expression.receiver?.type?.classifierOrNull as? IrClassSymbol
         val field = expression.symbol.owner
-        val parent = field.accessorParent(dispatchReceiverClassSymbol?.owner ?: field.parent, scopeInfo) as IrClass
+        val parent = field.accessorParent(dispatchReceiverClassSymbol?.owner ?: field.parent, scopeInfo)
 
         return field to parent
     }
 
-    private fun copyAllParamsToArgs(
+    protected fun copyAllParamsToArgs(
         call: IrFunctionAccessExpression,
         syntheticFunction: IrFunction
     ) {
@@ -453,28 +410,14 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
         oldExpression: IrFunctionAccessExpression,
         accessorSymbol: IrFunctionSymbol
     ): IrFunctionAccessExpression {
-        val newExpression = when (oldExpression) {
-            is IrCall -> IrCallImpl.fromSymbolOwner(
-                oldExpression.startOffset, oldExpression.endOffset,
-                oldExpression.type,
-                accessorSymbol as IrSimpleFunctionSymbol, oldExpression.typeArgumentsCount,
-                origin = oldExpression.origin
-            )
-            is IrDelegatingConstructorCall -> IrDelegatingConstructorCallImpl.fromSymbolOwner(
-                oldExpression.startOffset, oldExpression.endOffset,
-                context.irBuiltIns.unitType,
-                accessorSymbol as IrConstructorSymbol, oldExpression.typeArgumentsCount
-            )
-            is IrConstructorCall ->
-                IrConstructorCallImpl.fromSymbolOwner(
-                    oldExpression.startOffset, oldExpression.endOffset,
-                    oldExpression.type,
-                    accessorSymbol as IrConstructorSymbol
-                )
-            is IrEnumConstructorCall -> compilationException(
+        val newExpression = when {
+            oldExpression is IrDelegatingConstructorCall -> accessorSymbol.produceCallToSyntheticDelegatingConstructor(oldExpression)
+            oldExpression is IrEnumConstructorCall -> compilationException(
                 "Generating synthetic accessors for IrEnumConstructorCall is not supported",
                 oldExpression,
             )
+            accessorSymbol is IrConstructorSymbol -> accessorSymbol.produceCallToSyntheticConstructor(oldExpression)
+            else -> accessorSymbol.produceCallToSyntheticFunction(oldExpression)
         }
         newExpression.copyTypeArgumentsFrom(oldExpression)
         val receiverAndArgs = oldExpression.receiverAndArgs()
@@ -487,6 +430,124 @@ abstract class SyntheticAccessorGenerator<Context : BackendContext, ScopeInfo>(
         return newExpression
     }
 
+    private fun IrFunctionSymbol.produceCallToSyntheticFunction(
+        oldExpression: IrFunctionAccessExpression
+    ): IrCall {
+        return IrCallImpl.fromSymbolOwner(
+            oldExpression.startOffset, oldExpression.endOffset,
+            oldExpression.type,
+            this as IrSimpleFunctionSymbol,
+            origin = oldExpression.origin
+        )
+    }
+
+    private fun IrFunctionSymbol.produceCallToSyntheticDelegatingConstructor(
+        oldExpression: IrFunctionAccessExpression
+    ): IrDelegatingConstructorCall {
+        return IrDelegatingConstructorCallImpl.fromSymbolOwner(
+            oldExpression.startOffset, oldExpression.endOffset,
+            context.irBuiltIns.unitType,
+            this as IrConstructorSymbol
+        )
+    }
+
+    private fun IrFunctionSymbol.produceCallToSyntheticConstructor(
+        oldExpression: IrFunctionAccessExpression
+    ): IrFunctionAccessExpression {
+        return IrConstructorCallImpl.fromSymbolOwner(
+            oldExpression.startOffset, oldExpression.endOffset,
+            oldExpression.type,
+            this as IrConstructorSymbol
+        )
+    }
+
     fun createAccessorMarkerArgument() =
         IrConstImpl.constNull(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.ir.symbols.defaultConstructorMarker.defaultType.makeNullable())
+
+    /**
+     * Produces a call to the synthetic accessor [accessorSymbol] to replace the field _read_ expression [oldExpression].
+     *
+     * Before:
+     * ```kotlin
+     * class C {
+     *     protected /*field*/ val myField: Int
+     *
+     *     internal inline fun foo(): Int = myField + 1
+     * }
+     * ```
+     *
+     * After:
+     * ```kotlin
+     * class C {
+     *     protected /*field*/ val myField: Int
+     *
+     *     public static fun access$getMyField$p($this: C): Int =
+     *         $this.myField
+     *
+     *     internal inline fun foo(): Int =
+     *         C.access$getMyField$p(this) + 1
+     * }
+     * ```
+     */
+    fun modifyGetterExpression(
+        oldExpression: IrGetField,
+        accessorSymbol: IrSimpleFunctionSymbol
+    ): IrCall {
+        val call = IrCallImpl(
+            oldExpression.startOffset, oldExpression.endOffset,
+            oldExpression.type,
+            accessorSymbol, 0,
+            oldExpression.origin
+        )
+        oldExpression.receiver?.let {
+            call.putValueArgument(0, oldExpression.receiver)
+        }
+        return call
+    }
+
+    /**
+     * Produces a call to the synthetic accessor [accessorSymbol] to replace the field _write_ expression [oldExpression].
+     *
+     * Before:
+     * ```kotlin
+     * class C {
+     *     protected var myField: Int = 0
+     *
+     *     internal inline fun foo(x: Int) {
+     *         myField = x
+     *     }
+     * }
+     * ```
+     *
+     * After:
+     * ```kotlin
+     * class C {
+     *     protected var myField: Int = 0
+     *
+     *     public static fun access$setMyField$p($this: C, <set-?>: Int) {
+     *         $this.myField = <set-?>
+     *     }
+     *
+     *     internal inline fun foo(x: Int) {
+     *         access$setMyField$p(this, x)
+     *     }
+     * }
+     * ```
+     */
+    fun modifySetterExpression(
+        oldExpression: IrSetField,
+        accessorSymbol: IrSimpleFunctionSymbol
+    ): IrCall {
+        val call = IrCallImpl(
+            oldExpression.startOffset, oldExpression.endOffset,
+            oldExpression.type,
+            accessorSymbol, 0,
+            oldExpression.origin
+        )
+        oldExpression.receiver?.let {
+            call.putValueArgument(0, oldExpression.receiver)
+        }
+        call.putValueArgument(call.valueArgumentsCount - 1, oldExpression.value)
+        return call
+    }
 }

@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.settings.GCScheduler
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.KotlinNativeHome
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.testProcessExecutor
 import org.jetbrains.kotlin.konan.test.blackbox.targets
+import org.jetbrains.kotlin.native.executors.NoOpExecutor
 import org.jetbrains.kotlin.native.executors.RunProcessResult
 import org.jetbrains.kotlin.native.executors.runProcess
 import org.jetbrains.kotlin.test.KotlinTestUtils
@@ -118,6 +119,7 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
                 timeout = Duration.parse("1m")
             }
         }
+        Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
         assertEquals("Hello, world!", runResult.stdout)
     }
 
@@ -221,6 +223,7 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
 
     @Test
     fun testSplitCompilationPipeline() {
+
         val rootDir = testSuiteDir.resolve("split_compilation_pipeline")
         val libFile = buildDir.resolve("lib.klib")
         runProcess(
@@ -262,6 +265,36 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
             "-Xcompile-from-bitcode=${tmpFilesDir.absolutePath}/out.bc"
         )
         val output = testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath).output
+        Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
         KotlinTestUtils.assertEqualsToFile(rootDir.resolve("override_main.out"), output)
+    }
+
+    @Test
+    fun noSourcesOrIncludeKlib() {
+        val rootDir = testSuiteDir.resolve("kt68673")
+        val libFile = buildDir.resolve("program.klib")
+        val kexe = buildDir.resolve("program.kexe")
+        runProcess(
+            konanc.absolutePath,
+            rootDir.resolve("main.kt").absolutePath,
+            "-produce", "library",
+            "-o", libFile.absolutePath,
+            "-target", targets.testTarget.visibleName,
+        ) {
+            timeout = konancTimeout
+        }
+
+        runProcess(
+            konanc.absolutePath,
+            "-l", libFile.absolutePath,
+            "-o", kexe.absolutePath,
+            "-target", targets.testTarget.visibleName,
+            "-g"
+        ) {
+            timeout = konancTimeout
+        }
+        val output = testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath).output
+        Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
+        KotlinTestUtils.assertEqualsToFile(rootDir.resolve("main.out"), output)
     }
 }

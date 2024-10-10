@@ -10,9 +10,7 @@ import org.jetbrains.kotlin.backend.common.actualizer.IrExtraActualDeclarationEx
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.LanguageVersionSettings
-import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
@@ -24,8 +22,8 @@ import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.util.KotlinMangler
+import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.metadata.KlibMetadataFactories
-import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
 import org.jetbrains.kotlin.library.unresolvedDependencies
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
@@ -50,9 +48,9 @@ abstract class AbstractFir2IrResultsConverter(
     protected abstract fun createFir2IrVisibilityConverter(): Fir2IrVisibilityConverter
     protected abstract fun createTypeSystemContextProvider(): (IrBuiltIns) -> IrTypeSystemContext
     protected abstract fun createSpecialAnnotationsProvider(): IrSpecialAnnotationsProvider?
-    protected abstract fun createExtraActualDeclarationExtractorInitializer(): (Fir2IrComponents) -> IrExtraActualDeclarationExtractor?
+    protected abstract fun createExtraActualDeclarationExtractorInitializer(): (Fir2IrComponents) -> List<IrExtraActualDeclarationExtractor>
 
-    protected abstract fun resolveLibraries(module: TestModule, compilerConfiguration: CompilerConfiguration): List<KotlinResolvedLibrary>
+    protected abstract fun resolveLibraries(module: TestModule, compilerConfiguration: CompilerConfiguration): List<KotlinLibrary>
     protected abstract val klibFactories: KlibMetadataFactories
 
     final override val additionalServices: List<ServiceRegistrationData>
@@ -77,16 +75,21 @@ abstract class AbstractFir2IrResultsConverter(
         inputArtifact: FirOutputArtifact
     ): IrBackendInput {
         val compilerConfiguration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
+        val messageCollector = compilerConfiguration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
         val irMangler = createIrMangler()
-        val diagnosticReporter = DiagnosticReporterFactory.createReporter()
+        val diagnosticReporter = DiagnosticReporterFactory.createReporter(messageCollector)
 
         val fir2IrExtensions = createFir2IrExtensions(compilerConfiguration)
 
-        val libraries = resolveLibraries(module, compilerConfiguration)
-        val (dependencies, builtIns) = loadResolvedLibraries(libraries, compilerConfiguration.languageVersionSettings, testServices)
+        val libraries: List<KotlinLibrary> = resolveLibraries(module, compilerConfiguration)
+        val (dependencies: List<ModuleDescriptor>, builtIns: KotlinBuiltIns?) = loadModuleDescriptors(
+            libraries,
+            compilerConfiguration.languageVersionSettings,
+            testServices
+        )
 
-        val fir2IrConfiguration = Fir2IrConfiguration.forKlibCompilation(compilerConfiguration, diagnosticReporter)
+        val fir2IrConfiguration = createFir2IrConfiguration(compilerConfiguration, diagnosticReporter)
 
         val firResult = inputArtifact.toFirResult()
         val fir2irResult = firResult.convertToIrAndActualize(
@@ -98,7 +101,7 @@ abstract class AbstractFir2IrResultsConverter(
             builtIns ?: DefaultBuiltIns.Instance, // TODO: consider passing externally,
             createTypeSystemContextProvider(),
             specialAnnotationsProvider = createSpecialAnnotationsProvider(),
-            extraActualDeclarationExtractorInitializer = createExtraActualDeclarationExtractorInitializer(),
+            extraActualDeclarationExtractorsInitializer = createExtraActualDeclarationExtractorInitializer(),
         ).also {
             (it.irModuleFragment.descriptor as? FirModuleDescriptor)?.let { it.allDependencyModules = dependencies }
         }
@@ -119,6 +122,11 @@ abstract class AbstractFir2IrResultsConverter(
         )
     }
 
+    protected abstract fun createFir2IrConfiguration(
+        compilerConfiguration: CompilerConfiguration,
+        diagnosticReporter: BaseDiagnosticsCollector,
+    ): Fir2IrConfiguration
+
     protected abstract fun createBackendInput(
         module: TestModule,
         compilerConfiguration: CompilerConfiguration,
@@ -128,21 +136,21 @@ abstract class AbstractFir2IrResultsConverter(
         fir2KlibMetadataSerializer: Fir2KlibMetadataSerializer,
     ): IrBackendInput
 
-    private fun loadResolvedLibraries(
-        resolvedLibraries: List<KotlinResolvedLibrary>,
+    private fun loadModuleDescriptors(
+        libraries: List<KotlinLibrary>,
         languageVersionSettings: LanguageVersionSettings,
         testServices: TestServices
     ): Pair<List<ModuleDescriptor>, KotlinBuiltIns?> {
         var builtInsModule: KotlinBuiltIns? = null
         val dependencies = mutableListOf<ModuleDescriptorImpl>()
 
-        return resolvedLibraries.map { resolvedLibrary ->
-            testServices.libraryProvider.getOrCreateStdlibByPath(resolvedLibrary.library.libraryFile.absolutePath) {
+        return libraries.map { library ->
+            testServices.libraryProvider.getOrCreateStdlibByPath(library.libraryFile.absolutePath) {
                 // TODO: check safety of the approach of creating a separate storage manager per library
                 val storageManager = LockBasedStorageManager("ModulesStructure")
 
                 val moduleDescriptor = klibFactories.DefaultDeserializedDescriptorFactory.createDescriptorOptionalBuiltIns(
-                    resolvedLibrary.library,
+                    library,
                     languageVersionSettings,
                     storageManager,
                     builtInsModule,
@@ -152,10 +160,10 @@ abstract class AbstractFir2IrResultsConverter(
                 dependencies += moduleDescriptor
                 moduleDescriptor.setDependencies(ArrayList(dependencies))
 
-                Pair(moduleDescriptor, resolvedLibrary.library)
-            }.also {
-                val isBuiltIns = resolvedLibrary.library.unresolvedDependencies.isEmpty()
-                if (isBuiltIns) builtInsModule = it.builtIns
+                Pair(moduleDescriptor, library)
+            }.also { moduleDescriptor ->
+                val isBuiltIns = library.unresolvedDependencies.isEmpty()
+                if (isBuiltIns) builtInsModule = moduleDescriptor.builtIns
             }
         } to builtInsModule
     }

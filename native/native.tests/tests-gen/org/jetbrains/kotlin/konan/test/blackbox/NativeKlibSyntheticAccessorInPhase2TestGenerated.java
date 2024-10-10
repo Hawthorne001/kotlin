@@ -358,6 +358,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingLateinitIsInitializedFromInternalInline.kt")
+      public void testLeakingLateinitIsInitializedFromInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingLateinitIsInitializedFromInternalInline.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateClassConstructor.kt")
       public void testLeakingPrivateClassConstructor() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateClassConstructor.kt");
@@ -373,6 +379,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @TestMetadata("leakingPrivateConstructorThroughInternalInlineFun.kt")
       public void testLeakingPrivateConstructorThroughInternalInlineFun() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateConstructorThroughInternalInlineFun.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateConstructorWithTypeParameter.kt")
+      public void testLeakingPrivateConstructorWithTypeParameter() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateConstructorWithTypeParameter.kt");
       }
 
       @Test
@@ -436,6 +448,18 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline.kt")
+      public void testLeakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline.kt")
+      public void testLeakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateMethodInInnerClass.kt")
       public void testLeakingPrivateMethodInInnerClass() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateMethodInInnerClass.kt");
@@ -475,6 +499,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @TestMetadata("leakingPrivateMethodThroughInheritedCompanion.kt")
       public void testLeakingPrivateMethodThroughInheritedCompanion() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateMethodThroughInheritedCompanion.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateMethodThroughInlineMethodInLocalObjectInPublicInline.kt")
+      public void testLeakingPrivateMethodThroughInlineMethodInLocalObjectInPublicInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingPrivateMethodThroughInlineMethodInLocalObjectInPublicInline.kt");
       }
 
       @Test
@@ -574,9 +604,21 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingSeveralPrivateConstructorsThroughInternalInlineFun.kt")
+      public void testLeakingSeveralPrivateConstructorsThroughInternalInlineFun() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/leakingSeveralPrivateConstructorsThroughInternalInlineFun.kt");
+      }
+
+      @Test
       @TestMetadata("usePrivateConstValFromInternalInline.kt")
       public void testUsePrivateConstValFromInternalInline() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/usePrivateConstValFromInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateFunInterfaceFromInlineFun.kt")
+      public void testUsePrivateFunInterfaceFromInlineFun() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossFilePrivateLeak/usePrivateFunInterfaceFromInlineFun.kt");
       }
     }
 
@@ -631,6 +673,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingLateinitIsInitializedFromInternalInline.kt")
+      public void testLeakingLateinitIsInitializedFromInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingLateinitIsInitializedFromInternalInline.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateClassConstructor.kt")
       public void testLeakingPrivateClassConstructor() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateClassConstructor.kt");
@@ -646,6 +694,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @TestMetadata("leakingPrivateConstructorThroughInternalInlineFun.kt")
       public void testLeakingPrivateConstructorThroughInternalInlineFun() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateConstructorThroughInternalInlineFun.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateConstructorWithTypeParameter.kt")
+      public void testLeakingPrivateConstructorWithTypeParameter() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateConstructorWithTypeParameter.kt");
       }
 
       @Test
@@ -709,6 +763,18 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline.kt")
+      public void testLeakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline.kt")
+      public void testLeakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateMethodInInnerClass.kt")
       public void testLeakingPrivateMethodInInnerClass() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateMethodInInnerClass.kt");
@@ -748,6 +814,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @TestMetadata("leakingPrivateMethodThroughInheritedCompanion.kt")
       public void testLeakingPrivateMethodThroughInheritedCompanion() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateMethodThroughInheritedCompanion.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateMethodThroughInlineMethodInLocalObjectInPublicInline.kt")
+      public void testLeakingPrivateMethodThroughInlineMethodInLocalObjectInPublicInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingPrivateMethodThroughInlineMethodInLocalObjectInPublicInline.kt");
       }
 
       @Test
@@ -847,9 +919,21 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingSeveralPrivateConstructorsThroughInternalInlineFun.kt")
+      public void testLeakingSeveralPrivateConstructorsThroughInternalInlineFun() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/leakingSeveralPrivateConstructorsThroughInternalInlineFun.kt");
+      }
+
+      @Test
       @TestMetadata("usePrivateConstValFromInternalInline.kt")
       public void testUsePrivateConstValFromInternalInline() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/usePrivateConstValFromInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateFunInterfaceFromInlineFun.kt")
+      public void testUsePrivateFunInterfaceFromInlineFun() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/crossModulePrivateLeak/usePrivateFunInterfaceFromInlineFun.kt");
       }
     }
 
@@ -892,6 +976,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("useLateinitIsInitializedFromInternalInline.kt")
+      public void testUseLateinitIsInitializedFromInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/useLateinitIsInitializedFromInternalInline.kt");
+      }
+
+      @Test
       @TestMetadata("usePrivateClassConstructor.kt")
       public void testUsePrivateClassConstructor() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateClassConstructor.kt");
@@ -910,9 +1000,21 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("usePrivateConstructorWithTypeParameter.kt")
+      public void testUsePrivateConstructorWithTypeParameter() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateConstructorWithTypeParameter.kt");
+      }
+
+      @Test
       @TestMetadata("usePrivateExtensionFromInternalInline.kt")
       public void testUsePrivateExtensionFromInternalInline() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateExtensionFromInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateFunInterfaceFromInternalFun.kt")
+      public void testUsePrivateFunInterfaceFromInternalFun() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateFunInterfaceFromInternalFun.kt");
       }
 
       @Test
@@ -937,6 +1039,24 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @TestMetadata("usePrivateMethodFromLocalObjectInsideInternalInline.kt")
       public void testUsePrivateMethodFromLocalObjectInsideInternalInline() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateMethodFromLocalObjectInsideInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline.kt")
+      public void testUsePrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateMethodFromLocalObjectWithCrossinlineUsageInsideInternalInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline.kt")
+      public void testUsePrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateMethodFromLocalObjectWithCrossinlineUsageInsidePublicInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateMethodThroughInlineMethodInLocalObjectInPublicInline.kt")
+      public void testUsePrivateMethodThroughInlineMethodInLocalObjectInPublicInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateMethodThroughInlineMethodInLocalObjectInPublicInline.kt");
       }
 
       @Test
@@ -986,6 +1106,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       public void testUsePrivateVarFromReferenceInPublicInlineFun() {
         runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/usePrivateVarFromReferenceInPublicInlineFun.kt");
       }
+
+      @Test
+      @TestMetadata("useSeveralPrivateConstructorsThroughInternalInlineFun.kt")
+      public void testUseSeveralPrivateConstructorsThroughInternalInlineFun() {
+        runTest("compiler/testData/klib/syntheticAccessors/privateMember/singleFile/useSeveralPrivateConstructorsThroughInternalInlineFun.kt");
+      }
     }
   }
 
@@ -1015,6 +1141,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @Test
       public void testAllFilesPresentInCrossFilePrivateLeak() {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossFilePrivateLeak"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      }
+
+      @Test
+      @TestMetadata("leakingLateinitIsInitializedFromInternalInline.kt")
+      public void testLeakingLateinitIsInitializedFromInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossFilePrivateLeak/leakingLateinitIsInitializedFromInternalInline.kt");
       }
 
       @Test
@@ -1102,9 +1234,27 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingPrivateTopLevelFunThroughPrivateInlineMethodInLocalObject.kt")
+      public void testLeakingPrivateTopLevelFunThroughPrivateInlineMethodInLocalObject() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossFilePrivateLeak/leakingPrivateTopLevelFunThroughPrivateInlineMethodInLocalObject.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateTopLevelFunThroughPublicInlineMethodInLocalObject.kt")
+      public void testLeakingPrivateTopLevelFunThroughPublicInlineMethodInLocalObject() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossFilePrivateLeak/leakingPrivateTopLevelFunThroughPublicInlineMethodInLocalObject.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateTopLevelFunWithDifferentVisibility.kt")
       public void testLeakingPrivateTopLevelFunWithDifferentVisibility() {
         runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossFilePrivateLeak/leakingPrivateTopLevelFunWithDifferentVisibility.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateTopLevelLateinitVar.kt")
+      public void testLeakingPrivateTopLevelLateinitVar() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossFilePrivateLeak/leakingPrivateTopLevelLateinitVar.kt");
       }
 
       @Test
@@ -1195,6 +1345,12 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingLateinitIsInitializedFromInternalInline.kt")
+      public void testLeakingLateinitIsInitializedFromInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossModulePrivateLeak/leakingLateinitIsInitializedFromInternalInline.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateClassFromLocalObjectInsideInternalInline.kt")
       public void testLeakingPrivateClassFromLocalObjectInsideInternalInline() {
         runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossModulePrivateLeak/leakingPrivateClassFromLocalObjectInsideInternalInline.kt");
@@ -1279,9 +1435,27 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingPrivateTopLevelFunThroughPrivateInlineMethodInLocalObject.kt")
+      public void testLeakingPrivateTopLevelFunThroughPrivateInlineMethodInLocalObject() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossModulePrivateLeak/leakingPrivateTopLevelFunThroughPrivateInlineMethodInLocalObject.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateTopLevelFunThroughPublicInlineMethodInLocalObject.kt")
+      public void testLeakingPrivateTopLevelFunThroughPublicInlineMethodInLocalObject() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossModulePrivateLeak/leakingPrivateTopLevelFunThroughPublicInlineMethodInLocalObject.kt");
+      }
+
+      @Test
       @TestMetadata("leakingPrivateTopLevelFunWithDifferentVisibility.kt")
       public void testLeakingPrivateTopLevelFunWithDifferentVisibility() {
         runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossModulePrivateLeak/leakingPrivateTopLevelFunWithDifferentVisibility.kt");
+      }
+
+      @Test
+      @TestMetadata("leakingPrivateTopLevelLateinitVar.kt")
+      public void testLeakingPrivateTopLevelLateinitVar() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/crossModulePrivateLeak/leakingPrivateTopLevelLateinitVar.kt");
       }
 
       @Test
@@ -1378,6 +1552,18 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       }
 
       @Test
+      @TestMetadata("leakingPrivateTopLevelLateinitVar.kt")
+      public void testLeakingPrivateTopLevelLateinitVar() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/singleFile/leakingPrivateTopLevelLateinitVar.kt");
+      }
+
+      @Test
+      @TestMetadata("useLateinitIsInitializedFromInternalInline.kt")
+      public void testUseLateinitIsInitializedFromInternalInline() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/singleFile/useLateinitIsInitializedFromInternalInline.kt");
+      }
+
+      @Test
       @TestMetadata("usePrivateClassThroughGenericType.kt")
       public void testUsePrivateClassThroughGenericType() {
         runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/singleFile/usePrivateClassThroughGenericType.kt");
@@ -1417,6 +1603,18 @@ public class NativeKlibSyntheticAccessorInPhase2TestGenerated extends AbstractNa
       @TestMetadata("usePrivateTopLevelFunFromLambdaInsidePublicInline.kt")
       public void testUsePrivateTopLevelFunFromLambdaInsidePublicInline() {
         runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/singleFile/usePrivateTopLevelFunFromLambdaInsidePublicInline.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateTopLevelFunInsidePrivateInlineMethodInLocalObject.kt")
+      public void testUsePrivateTopLevelFunInsidePrivateInlineMethodInLocalObject() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/singleFile/usePrivateTopLevelFunInsidePrivateInlineMethodInLocalObject.kt");
+      }
+
+      @Test
+      @TestMetadata("usePrivateTopLevelFunInsidePublicInlineMethodInLocalObject.kt")
+      public void testUsePrivateTopLevelFunInsidePublicInlineMethodInLocalObject() {
+        runTest("compiler/testData/klib/syntheticAccessors/topLevelPrivate/singleFile/usePrivateTopLevelFunInsidePublicInlineMethodInLocalObject.kt");
       }
 
       @Test

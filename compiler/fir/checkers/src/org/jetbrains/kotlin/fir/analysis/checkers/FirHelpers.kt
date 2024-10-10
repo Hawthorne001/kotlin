@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers
 
 import com.intellij.lang.LighterASTNode
 import org.jetbrains.kotlin.*
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.StandardNames.HASHCODE_NAME
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -45,6 +46,7 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtParameter.VAL_VAR_TOKEN_SET
 import org.jetbrains.kotlin.resolve.AnnotationTargetList
+import org.jetbrains.kotlin.resolve.AnnotationTargetListForDeprecation
 import org.jetbrains.kotlin.resolve.AnnotationTargetLists
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
@@ -497,7 +499,7 @@ fun checkTypeMismatch(
     var lValueType = lValueOriginalType
     var rValueType = rValue.resolvedType
     if (source.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement) {
-        if (!lValueType.isNullable && rValueType.isNullable) {
+        if (!lValueType.isMarkedOrFlexiblyNullable && rValueType.isMarkedOrFlexiblyNullable) {
             val tempType = rValueType
             rValueType = lValueType
             lValueType = tempType
@@ -516,7 +518,7 @@ fun checkTypeMismatch(
         } -> {
             reporter.reportOn(assignment.source, FirErrors.SETTER_PROJECTED_OUT, resolvedSymbol, context)
         }
-        rValue.isNullLiteral && lValueType.nullability == ConeNullability.NOT_NULL -> {
+        rValue.isNullLiteral && !lValueType.isMarkedOrFlexiblyNullable -> {
             reporter.reportOn(rValue.source, FirErrors.NULL_FOR_NONNULL_TYPE, lValueType, context)
         }
         isInitializer -> {
@@ -530,7 +532,7 @@ fun checkTypeMismatch(
             )
         }
         source.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement || assignment?.source?.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement -> {
-            if (!lValueType.isNullable && rValueType.isNullable) {
+            if (!lValueType.isMarkedOrFlexiblyNullable && rValueType.isMarkedOrFlexiblyNullable) {
                 val tempType = rValueType
                 rValueType = lValueType
                 lValueType = tempType
@@ -556,7 +558,9 @@ fun checkTypeMismatch(
 
 internal fun checkCondition(condition: FirExpression, context: CheckerContext, reporter: DiagnosticReporter) {
     val coneType = condition.resolvedType.fullyExpandedType(context.session).lowerBoundIfFlexible()
-    if (coneType !is ConeErrorType && !coneType.isSubtypeOf(context.session.typeContext, context.session.builtinTypes.booleanType.coneType)) {
+    if (coneType !is ConeErrorType &&
+        !coneType.isSubtypeOf(context.session.typeContext, context.session.builtinTypes.booleanType.coneType)
+    ) {
         reporter.reportOn(
             condition.source,
             FirErrors.CONDITION_TYPE_MISMATCH,
@@ -630,17 +634,23 @@ fun FirFunctionSymbol<*>.isFunctionForExpectTypeFromCastFeature(): Boolean {
     fun FirTypeRef.isBadType() =
         coneType.contains { (it.lowerBoundIfFlexible() as? ConeTypeParameterType)?.lookupTag == typeParameterSymbol.toLookupTag() }
 
-    if (valueParameterSymbols.any { it.resolvedReturnTypeRef.isBadType() } || resolvedReceiverTypeRef?.isBadType() == true) return false
-
-    return true
+    return valueParameterSymbols.none { it.resolvedReturnTypeRef.isBadType() } || resolvedReceiverTypeRef?.isBadType() == true
 }
 
 private val FirCallableDeclaration.isMember get() = dispatchReceiverType != null
 
 fun getActualTargetList(container: FirAnnotationContainer): AnnotationTargetList {
     val annotated =
-        if (container is FirBackingField && !container.propertySymbol.hasBackingField) container.propertyIfBackingField
-        else container
+        if (container is FirBackingField) {
+            when {
+                !container.propertySymbol.hasBackingField -> container.propertyIfBackingField
+                container.propertySymbol.getContainingClassSymbol()?.classKind == ClassKind.ANNOTATION_CLASS -> {
+                    @OptIn(AnnotationTargetListForDeprecation::class)
+                    return TargetLists.T_MEMBER_PROPERTY_IN_ANNOTATION
+                }
+                else -> container
+            }
+        } else container
 
     return when (annotated) {
         is FirRegularClass -> {
@@ -778,18 +788,6 @@ fun FirNamedFunctionSymbol.directOverriddenFunctions(session: FirSession, scopeS
 fun FirNamedFunctionSymbol.directOverriddenFunctions(context: CheckerContext) =
     directOverriddenFunctions(context.session, context.sessionHolder.scopeSession)
 
-inline fun <C : MutableCollection<FirNamedFunctionSymbol>> FirNamedFunctionSymbol.collectOverriddenFunctionsWhere(
-    collection: C,
-    context: CheckerContext,
-    crossinline condition: (FirNamedFunctionSymbol) -> Boolean,
-) = collection.apply {
-    processOverriddenFunctions(context) {
-        if (condition(it)) {
-            add(it)
-        }
-    }
-}
-
 inline fun FirNamedFunctionSymbol.processOverriddenFunctions(
     context: CheckerContext,
     crossinline action: (FirNamedFunctionSymbol) -> Unit,
@@ -870,8 +868,14 @@ fun FirResolvedQualifier.isStandalone(
     if (lastQualifiedAccess?.explicitReceiver === this || lastQualifiedAccess?.dispatchReceiver === this) return false
     val lastGetClass = context.getClassCalls.lastOrNull()
     if (lastGetClass?.argument === this) return false
+    if (isExplicitParentOfResolvedQualifier(context)) return false
 
     return true
+}
+
+fun FirResolvedQualifier.isExplicitParentOfResolvedQualifier(context: CheckerContext): Boolean {
+    val secondToLastElement = context.containingElements.elementAtOrNull(context.containingElements.size - 2)
+    return secondToLastElement.let { it is FirResolvedQualifier && it.explicitParent == this }
 }
 
 fun isExplicitTypeArgumentSource(source: KtSourceElement?): Boolean =
@@ -897,4 +901,14 @@ fun FirAnonymousFunction.getReturnedExpressions(): List<FirExpression> {
     }
 
     return exitNode.previousNodes.mapNotNull(::extractReturnedExpression)
+}
+
+fun FirValueParameterSymbol.getParameterNameFromAnnotation(): String? {
+    return resolvedReturnType.getParameterNameFromAnnotation(moduleData.session)
+}
+
+fun ConeKotlinType.getParameterNameFromAnnotation(session: FirSession): String? {
+    val annotation = customAnnotations.getAnnotationByClassId(StandardNames.FqNames.parameterNameClassId, session) ?: return null
+    val argument = annotation.argumentMapping.mapping[StandardNames.NAME]
+    return (argument as? FirLiteralExpression)?.value as? String
 }

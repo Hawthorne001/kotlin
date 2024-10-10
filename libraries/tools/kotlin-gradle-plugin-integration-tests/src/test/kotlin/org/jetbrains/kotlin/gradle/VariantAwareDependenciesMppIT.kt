@@ -62,7 +62,7 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
                 )
 
             testResolveAllConfigurations("kotlin2JsInternalTest") { _, buildResult ->
-                buildResult.assertOutputContains(">> :kotlin2JsInternalTest:runtimeClasspath --> sample-lib-nodejs-1.0.klib")
+                buildResult.assertOutputContains(">> :kotlin2JsInternalTest:runtimeClasspath --> build/classes/kotlin/nodeJs/main")
             }
         }
     }
@@ -110,19 +110,23 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
             subProject("simpleProject").buildGradle.modify {
                 // In Gradle 5.3+, the variants of a Kotlin MPP can't be disambiguated in a pure Java project's deprecated
                 // configurations that don't have a proper 'org.gradle.usage' attribute value, see KT-30378
-                it.checkedReplace("id \"org.jetbrains.kotlin.jvm\"", "") +
+                it
+                    .checkedReplace("id \"org.jetbrains.kotlin.jvm\"", "")
+                    .checkedReplace("kotlin.jvmToolchain(8)", "")
+                    .plus(
                         """
-                    |
-                    |configurations {
-                    |    configure([compile, runtime, deployCompile, deployCompileOnly, deployRuntime,
-                    |        testCompile, testRuntime, getByName('default')]) {
-                    |        canBeResolved = false
-                    |    }
-                    |}
-                    |
-                    |dependencies { implementation rootProject }
-                    |
-                    """.trimMargin()
+                        |
+                        |configurations {
+                        |    configure([compile, runtime, deployCompile, deployCompileOnly, deployRuntime,
+                        |        testCompile, testRuntime, getByName('default')]) {
+                        |        canBeResolved = false
+                        |    }
+                        |}
+                        |
+                        |dependencies { implementation rootProject }
+                        |
+                        """.trimMargin()
+                    )
             }
 
             testResolveAllConfigurations("simpleProject")
@@ -205,7 +209,6 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
     @GradleTest
     fun testJvmWithJavaProjectCanBeResolvedInAllConfigurations(gradleVersion: GradleVersion) {
         val buildOptions = defaultBuildOptions
-            .copy(enableKmpProjectIsolation = false) // TODO: Fix with KT-64998
         project("new-mpp-jvm-with-java-multi-module", gradleVersion, buildOptions) {
             testResolveAllConfigurations("app")
         }

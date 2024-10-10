@@ -32,13 +32,13 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrTransformer
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
 
-private var IrClass.enumValueGetter: IrFunction? by irAttribute(followAttributeOwner = false)
+private var IrClass.enumValueGetter: IrSimpleFunction? by irAttribute(followAttributeOwner = false)
 private var IrClass.enumEntriesMap: Map<Name, LoweredEnumEntryDescription>? by irAttribute(followAttributeOwner = false)
 
 internal data class LoweredEnumEntryDescription(val ordinal: Int, val getterId: Int)
@@ -61,7 +61,7 @@ internal class EnumsSupport(
         }
     }
 
-    fun getValueGetter(enumClass: IrClass): IrFunction {
+    fun getValueGetter(enumClass: IrClass): IrSimpleFunction {
         require(enumClass.isEnumClass) { "Expected enum class but was: ${enumClass.render()}" }
         return enumClass::enumValueGetter.getOrSetIfNull {
             irFactory.buildFun {
@@ -92,7 +92,7 @@ internal class NativeEnumWhenLowering constructor(context: Context) : EnumWhenLo
     }
 }
 
-internal class EnumUsageLowering(val context: Context) : IrElementTransformer<IrBuilderWithScope?>, FileLoweringPass {
+internal class EnumUsageLowering(val context: Context) : IrTransformer<IrBuilderWithScope?>(), FileLoweringPass {
     private val enumsSupport = context.enumsSupport
 
     override fun lower(irFile: IrFile) {

@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.backend.ast.metadata.SideEffectKind
 import org.jetbrains.kotlin.js.backend.ast.metadata.sideEffects
 import org.jetbrains.kotlin.js.backend.ast.metadata.synthetic
+import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
 import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 import org.jetbrains.kotlin.utils.toSmartList
@@ -58,21 +59,21 @@ class IrElementToJsExpressionTransformer : BaseIrElementToJsNodeTransformer<JsEx
         val irFunction = expression.function
         return irFunction.accept(IrFunctionToJsTransformer(), context).apply {
             name = null
-            if (context.staticContext.backendContext.es6mode) {
+            if (context.staticContext.backendContext.configuration.getBoolean(JSConfigurationKeys.COMPILE_LAMBDAS_AS_ES6_ARROW_FUNCTIONS)) {
                 isEs6Arrow = true
             }
         }
     }
 
-    override fun visitConst(expression: IrConst<*>, context: JsGenerationContext): JsExpression {
+    override fun visitConst(expression: IrConst, context: JsGenerationContext): JsExpression {
         val kind = expression.kind
         return when (kind) {
-            is IrConstKind.String -> JsStringLiteral(kind.valueOf(expression))
+            is IrConstKind.String -> JsStringLiteral(expression.value as String)
             is IrConstKind.Null -> JsNullLiteral()
-            is IrConstKind.Boolean -> JsBooleanLiteral(kind.valueOf(expression))
-            is IrConstKind.Byte -> JsIntLiteral(kind.valueOf(expression).toInt())
-            is IrConstKind.Short -> JsIntLiteral(kind.valueOf(expression).toInt())
-            is IrConstKind.Int -> JsIntLiteral(kind.valueOf(expression))
+            is IrConstKind.Boolean -> JsBooleanLiteral(expression.value as Boolean)
+            is IrConstKind.Byte -> JsIntLiteral((expression.value as Byte).toInt())
+            is IrConstKind.Short -> JsIntLiteral((expression.value as Short).toInt())
+            is IrConstKind.Int -> JsIntLiteral(expression.value as Int)
             is IrConstKind.Long -> compilationException(
                 "Long const should have been lowered at this point",
                 expression
@@ -81,8 +82,8 @@ class IrElementToJsExpressionTransformer : BaseIrElementToJsNodeTransformer<JsEx
                 "Char const should have been lowered at this point",
                 expression
             )
-            is IrConstKind.Float -> JsDoubleLiteral(toDoubleConst(kind.valueOf(expression)))
-            is IrConstKind.Double -> JsDoubleLiteral(kind.valueOf(expression))
+            is IrConstKind.Float -> JsDoubleLiteral(toDoubleConst(expression.value as Float))
+            is IrConstKind.Double -> JsDoubleLiteral(expression.value as Double)
         }.withSource(expression, context)
     }
 
@@ -329,11 +330,6 @@ class IrElementToJsExpressionTransformer : BaseIrElementToJsNodeTransformer<JsEx
                     expression.receiver.accept(this, data),
                     expression.arguments.memoryOptimizedMap { it.accept(this, data) }
                 )
-
-            else -> compilationException(
-                "Unexpected operator ${expression.operator}",
-                expression
-            )
         }.withSource(expression, data)
 
     override fun visitRawFunctionReference(expression: IrRawFunctionReference, data: JsGenerationContext): JsExpression {

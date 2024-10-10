@@ -21,32 +21,36 @@ import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.expressions.IrSyntheticBody
+import org.jetbrains.kotlin.ir.util.file
 import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.util.toIrConst
 import org.jetbrains.kotlin.name.Name
 
-// This pass needed to wrap around unhandled exceptions from JsExport functions and throw JS exception for call from JS site
-// @JsExport
-// fun someExportedMethod() {
-//     error("some error message")
-// }
-//
-// converts into
-//
-// @JsExport
-// fun someExportedMethod() {
-//     val currentIsNotFirstWasmExportCall = isNotFirstWasmExportCall
-//     try {
-//         isNotFirstWasmExportCall = true
-//         error("some error message")
-//     } catch (e: Throwable) {
-//         if (currentIsNotFirstWasmExportCall) throw e else throwAsJsException(e)
-//     } finally {
-//         isNotFirstWasmExportCall = currentIsNotFirstWasmExportCall
-//     }
-// }
-// TODO Wrap fieldInitializer function (now it building by later FieldInitializersLowering)
-
+/**
+ * Wraps `@JsExport` functions with try-catch to convert unhandled Wasm exceptions into JS exceptions.
+ *
+ *     @JsExport
+ *     fun someExportedMethod() {
+ *         error("some error message")
+ *     }
+ *
+ * converts into
+ *
+ *     @JsExport
+ *     fun someExportedMethod() {
+ *         val currentIsNotFirstWasmExportCall = isNotFirstWasmExportCall
+ *         try {
+ *             isNotFirstWasmExportCall = true
+ *             error("some error message")
+ *         } catch (e: Throwable) {
+ *             if (currentIsNotFirstWasmExportCall) throw e else throwAsJsException(e)
+ *         } finally {
+ *             isNotFirstWasmExportCall = currentIsNotFirstWasmExportCall
+ *         }
+ *     }
+ *
+ * TODO Wrap fieldInitializer function (now it building by later linkWasmCompiledFragments)
+ */
 internal class UnhandledExceptionLowering(val context: WasmBackendContext) : FileLoweringPass {
     private val throwableType = context.irBuiltIns.throwableType
     private val irBooleanType = context.wasmSymbols.irBuiltIns.booleanType
@@ -57,7 +61,9 @@ internal class UnhandledExceptionLowering(val context: WasmBackendContext) : Fil
     private fun processExportFunction(irFunction: IrFunction) {
         val body = irFunction.body ?: return
         if (body is IrBlockBody && body.statements.isEmpty()) return
-        if (irFunction in context.closureCallExports.values) return
+        context.applyIfDefined(irFunction.file) {
+            if (irFunction in it.closureCallExports.values) return
+        }
 
         val bodyType = when (body) {
             is IrExpressionBody -> body.expression.type

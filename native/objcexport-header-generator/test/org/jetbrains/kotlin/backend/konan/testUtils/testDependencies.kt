@@ -21,6 +21,10 @@ val testLibraryBKlibFile
     get() = testDependencyKlibs.firstOrNull { it.contains(Path("testLibraryB")) }
         ?: error("Missing 'testLibraryB' in 'testDependencyKlibs' System Property")
 
+val testLibraryCKlibFile
+    get() = testDependencyKlibs.firstOrNull { it.contains(Path("testLibraryC")) }
+        ?: error("Missing 'testLibraryC' in 'testDependencyKlibs' System Property")
+
 val testInternalKlibFile
     get() = testDependencyKlibs.firstOrNull { it.contains(Path("testInternalLibrary")) }
         ?: error("Missing 'testInternalLibrary' in 'testDependencyKlibs' System Property")
@@ -48,3 +52,8 @@ val testLibraryKotlinxCoroutines
     get() = testDependencyKlibs.firstOrNull {
         it.pathString.contains("coroutines")
     } ?: error("Missing 'kotlinx-coroutines' in 'testDependencyKlibs' System Property")
+
+val testLibraryAtomicFu
+    get() = testDependencyKlibs.firstOrNull {
+        it.pathString.contains("atomicfu")
+    } ?: error("Missing 'org.jetbrains.kotlinx.atomicfu' in 'testDependencyKlibs' System Property")

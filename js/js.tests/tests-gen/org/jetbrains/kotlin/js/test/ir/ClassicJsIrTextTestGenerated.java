@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.js.test.ir;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
+import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
@@ -19,6 +20,7 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("compiler/testData/ir/irText")
 @TestDataPath("$PROJECT_ROOT")
+@Tag("legacy-frontend")
 public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Test
   public void testAllFilesPresentInIrText() {
@@ -28,6 +30,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/classes")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Classes {
     @Test
     @TestMetadata("47424.kt")
@@ -313,6 +316,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/classes/dataClasses")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class DataClasses {
       @Test
       public void testAllFilesPresentInDataClasses() {
@@ -378,6 +382,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/declarations")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Declarations {
     @Test
     public void testAllFilesPresentInDeclarations() {
@@ -549,6 +554,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/annotations")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Annotations {
       @Test
       public void testAllFilesPresentInAnnotations() {
@@ -730,6 +736,12 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       }
 
       @Test
+      @TestMetadata("specialAnnotationsMetadata.kt")
+      public void testSpecialAnnotationsMetadata() {
+        runTest("compiler/testData/ir/irText/declarations/annotations/specialAnnotationsMetadata.kt");
+      }
+
+      @Test
       @TestMetadata("spreadOperatorInAnnotationArguments.kt")
       public void testSpreadOperatorInAnnotationArguments() {
         runTest("compiler/testData/ir/irText/declarations/annotations/spreadOperatorInAnnotationArguments.kt");
@@ -769,6 +781,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/contextReceivers")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class ContextReceivers {
       @Test
       public void testAllFilesPresentInContextReceivers() {
@@ -916,6 +929,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       @Nested
       @TestMetadata("compiler/testData/ir/irText/declarations/contextReceivers/fromKEEP")
       @TestDataPath("$PROJECT_ROOT")
+      @Tag("legacy-frontend")
       public class FromKEEP {
         @Test
         public void testAllFilesPresentInFromKEEP() {
@@ -957,6 +971,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/delegate")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Delegate {
       @Test
       public void testAllFilesPresentInDelegate() {
@@ -979,6 +994,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/jvmRecord")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class JvmRecord {
       @Test
       public void testAllFilesPresentInJvmRecord() {
@@ -989,6 +1005,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/multiplatform")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Multiplatform {
       @Test
       public void testAllFilesPresentInMultiplatform() {
@@ -998,6 +1015,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       @Nested
       @TestMetadata("compiler/testData/ir/irText/declarations/multiplatform/k1")
       @TestDataPath("$PROJECT_ROOT")
+      @Tag("legacy-frontend")
       public class K1 {
         @Test
         public void testAllFilesPresentInK1() {
@@ -1045,6 +1063,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/parameters")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Parameters {
       @Test
       public void testAllFilesPresentInParameters() {
@@ -1133,6 +1152,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/provideDelegate")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class ProvideDelegate {
       @Test
       public void testAllFilesPresentInProvideDelegate() {
@@ -1180,6 +1200,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/errors")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Errors {
     @Test
     public void testAllFilesPresentInErrors() {
@@ -1202,6 +1223,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/expressions")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Expressions {
     @Test
     public void testAllFilesPresentInExpressions() {
@@ -2111,6 +2133,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/expressions/callableReferences")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class CallableReferences {
       @Test
       @TestMetadata("adaptedExtensionFunctions.kt")
@@ -2241,6 +2264,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class FloatingPointComparisons {
       @Test
       public void testAllFilesPresentInFloatingPointComparisons() {
@@ -2317,6 +2341,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/expressions/funInterface")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class FunInterface {
       @Test
       public void testAllFilesPresentInFunInterface() {
@@ -2375,6 +2400,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/expressions/sam")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Sam {
       @Test
       public void testAllFilesPresentInSam() {
@@ -2386,10 +2412,17 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/fakeOverrides")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class FakeOverrides {
     @Test
     public void testAllFilesPresentInFakeOverrides() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/fakeOverrides"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    }
+
+    @Test
+    @TestMetadata("capturedTypeInFakeOverride.kt")
+    public void testCapturedTypeInFakeOverride() {
+      runTest("compiler/testData/ir/irText/fakeOverrides/capturedTypeInFakeOverride.kt");
     }
 
     @Test
@@ -2401,6 +2434,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/annotations")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Annotations {
       @Test
       public void testAllFilesPresentInAnnotations() {
@@ -2411,6 +2445,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/charsequence")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Charsequence {
       @Test
       public void testAllFilesPresentInCharsequence() {
@@ -2421,6 +2456,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/collections")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Collections {
       @Test
       public void testAllFilesPresentInCollections() {
@@ -2430,6 +2466,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       @Nested
       @TestMetadata("compiler/testData/ir/irText/fakeOverrides/collections/list")
       @TestDataPath("$PROJECT_ROOT")
+      @Tag("legacy-frontend")
       public class List {
         @Test
         public void testAllFilesPresentInList() {
@@ -2440,6 +2477,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       @Nested
       @TestMetadata("compiler/testData/ir/irText/fakeOverrides/collections/map")
       @TestDataPath("$PROJECT_ROOT")
+      @Tag("legacy-frontend")
       public class Map {
         @Test
         public void testAllFilesPresentInMap() {
@@ -2450,6 +2488,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       @Nested
       @TestMetadata("compiler/testData/ir/irText/fakeOverrides/collections/set")
       @TestDataPath("$PROJECT_ROOT")
+      @Tag("legacy-frontend")
       public class Set {
         @Test
         public void testAllFilesPresentInSet() {
@@ -2461,6 +2500,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/dataclass")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Dataclass {
       @Test
       public void testAllFilesPresentInDataclass() {
@@ -2471,6 +2511,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/enum")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Enum {
       @Test
       public void testAllFilesPresentInEnum() {
@@ -2481,6 +2522,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/fieldmodifiers")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Fieldmodifiers {
       @Test
       public void testAllFilesPresentInFieldmodifiers() {
@@ -2491,6 +2533,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/generics")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Generics {
       @Test
       public void testAllFilesPresentInGenerics() {
@@ -2501,6 +2544,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/gettersetter")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Gettersetter {
       @Test
       public void testAllFilesPresentInGettersetter() {
@@ -2511,6 +2555,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/java21")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Java21 {
       @Test
       public void testAllFilesPresentInJava21() {
@@ -2521,6 +2566,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/javastatic")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Javastatic {
       @Test
       public void testAllFilesPresentInJavastatic() {
@@ -2531,6 +2577,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/kotlinextensions")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Kotlinextensions {
       @Test
       public void testAllFilesPresentInKotlinextensions() {
@@ -2541,6 +2588,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/methodmodifiers")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Methodmodifiers {
       @Test
       public void testAllFilesPresentInMethodmodifiers() {
@@ -2551,6 +2599,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/methodparameters")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Methodparameters {
       @Test
       public void testAllFilesPresentInMethodparameters() {
@@ -2561,6 +2610,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/number")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Number {
       @Test
       public void testAllFilesPresentInNumber() {
@@ -2571,6 +2621,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/operators")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Operators {
       @Test
       public void testAllFilesPresentInOperators() {
@@ -2581,6 +2632,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/platformtypes")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Platformtypes {
       @Test
       public void testAllFilesPresentInPlatformtypes() {
@@ -2591,6 +2643,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/typenothing")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Typenothing {
       @Test
       public void testAllFilesPresentInTypenothing() {
@@ -2601,6 +2654,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/vararg")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Vararg {
       @Test
       public void testAllFilesPresentInVararg() {
@@ -2611,6 +2665,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/visibility")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Visibility {
       @Test
       public void testAllFilesPresentInVisibility() {
@@ -2621,6 +2676,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/fakeOverrides/void")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Void {
       @Test
       public void testAllFilesPresentInVoid() {
@@ -2632,6 +2688,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/firProblems")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class FirProblems {
     @Test
     public void testAllFilesPresentInFirProblems() {
@@ -2900,6 +2957,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/js")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Js {
     @Test
     public void testAllFilesPresentInJs() {
@@ -2909,6 +2967,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/js/dynamic")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Dynamic {
       @Test
       public void testAllFilesPresentInDynamic() {
@@ -3057,6 +3116,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/js/external")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class External {
       @Test
       public void testAllFilesPresentInExternal() {
@@ -3073,6 +3133,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/js/native")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class Native {
       @Test
       public void testAllFilesPresentInNative() {
@@ -3090,6 +3151,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/lambdas")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Lambdas {
     @Test
     public void testAllFilesPresentInLambdas() {
@@ -3142,6 +3204,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/properties")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Properties {
     @Test
     public void testAllFilesPresentInProperties() {
@@ -3157,6 +3220,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/properties/backingField")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class BackingField {
       @Test
       public void testAllFilesPresentInBackingField() {
@@ -3192,6 +3256,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/regressions")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Regressions {
     @Test
     public void testAllFilesPresentInRegressions() {
@@ -3238,6 +3303,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/singletons")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Singletons {
     @Test
     public void testAllFilesPresentInSingletons() {
@@ -3266,6 +3332,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/stubs")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Stubs {
     @Test
     public void testAllFilesPresentInStubs() {
@@ -3294,6 +3361,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
   @Nested
   @TestMetadata("compiler/testData/ir/irText/types")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("legacy-frontend")
   public class Types {
     @Test
     @TestMetadata("abbreviatedTypes.kt")
@@ -3403,12 +3471,6 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     }
 
     @Test
-    @TestMetadata("intersectionTypeInSamType.kt")
-    public void testIntersectionTypeInSamType() {
-      runTest("compiler/testData/ir/irText/types/intersectionTypeInSamType.kt");
-    }
-
-    @Test
     @TestMetadata("kt36143.kt")
     public void testKt36143() {
       runTest("compiler/testData/ir/irText/types/kt36143.kt");
@@ -3459,6 +3521,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Nested
     @TestMetadata("compiler/testData/ir/irText/types/nullChecks")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
     public class NullChecks {
       @Test
       public void testAllFilesPresentInNullChecks() {
@@ -3468,6 +3531,7 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       @Nested
       @TestMetadata("compiler/testData/ir/irText/types/nullChecks/nullCheckOnLambdaResult")
       @TestDataPath("$PROJECT_ROOT")
+      @Tag("legacy-frontend")
       public class NullCheckOnLambdaResult {
         @Test
         public void testAllFilesPresentInNullCheckOnLambdaResult() {

@@ -39,6 +39,18 @@ public class LLFirNativeTestGenerated extends AbstractLLFirNativeTest {
   }
 
   @Test
+  @TestMetadata("dynamic.kt")
+  public void testDynamic() {
+    runTest("compiler/testData/diagnostics/nativeTests/dynamic.kt");
+  }
+
+  @Test
+  @TestMetadata("externalNonFunctions.kt")
+  public void testExternalNonFunctions() {
+    runTest("compiler/testData/diagnostics/nativeTests/externalNonFunctions.kt");
+  }
+
+  @Test
   @TestMetadata("forwardDeclarations.kt")
   public void testForwardDeclarations() {
     runTest("compiler/testData/diagnostics/nativeTests/forwardDeclarations.kt");

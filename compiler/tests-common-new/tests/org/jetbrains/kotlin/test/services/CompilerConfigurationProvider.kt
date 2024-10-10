@@ -134,6 +134,7 @@ fun createCompilerConfiguration(module: TestModule, configurators: List<Abstract
     if (JsEnvironmentConfigurationDirectives.ES6_MODE in module.directives) {
         configuration.put(JSConfigurationKeys.USE_ES6_CLASSES, true)
         configuration.put(JSConfigurationKeys.COMPILE_SUSPEND_AS_JS_GENERATOR, true)
+        configuration.put(JSConfigurationKeys.COMPILE_LAMBDAS_AS_ES6_ARROW_FUNCTIONS, true)
     }
 
     if (module.frontendKind == FrontendKinds.FIR) {
@@ -149,10 +150,6 @@ fun createCompilerConfiguration(module: TestModule, configurators: List<Abstract
     configuration.put(
         CommonConfigurationKeys.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING,
         CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING in module.directives
-    )
-    configuration.put(
-        KlibConfigurationKeys.EXPERIMENTAL_DOUBLE_INLINING,
-        CodegenTestDirectives.ENABLE_EXPERIMENTAL_DOUBLE_INLINING in module.directives
     )
 
     val messageCollector = PrintingMessageCollector(System.err, CompilerTestMessageRenderer(module), /*verbose=*/false)

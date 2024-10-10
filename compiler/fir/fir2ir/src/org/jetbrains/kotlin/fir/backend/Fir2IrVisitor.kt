@@ -35,9 +35,8 @@ import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
-import org.jetbrains.kotlin.ir.builders.primitiveOp2
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -150,12 +149,11 @@ class Fir2IrVisitor(
                 // `correspondingClass` definitely is not a lazy class
                 @OptIn(UnsafeDuringIrConstructionAPI::class)
                 val constructor = correspondingClass.constructors.first()
-                irEnumEntry.initializerExpression = irFactory.createExpressionBody(
+                irEnumEntry.initializerExpression = IrFactoryImpl.createExpressionBody(
                     IrEnumConstructorCallImpl(
                         startOffset, endOffset, irType,
                         constructor.symbol,
                         typeArgumentsCount = constructor.typeParameters.size,
-                        valueArgumentsCount = constructor.valueParameters.size
                     )
                 )
             }
@@ -166,7 +164,7 @@ class Fir2IrVisitor(
             val delegatedConstructor = initializer.anonymousObject.primaryConstructorIfAny(session)?.fir?.delegatedConstructor
             if (delegatedConstructor != null) {
                 with(memberGenerator) {
-                    irEnumEntry.initializerExpression = irFactory.createExpressionBody(
+                    irEnumEntry.initializerExpression = IrFactoryImpl.createExpressionBody(
                         delegatedConstructor.toIrDelegatingConstructorCall()
                     )
                 }
@@ -178,10 +176,9 @@ class Fir2IrVisitor(
             val constructor = irParentEnumClass.defaultConstructor
                 ?: error("Assuming that default constructor should exist and be converted at this point")
             enumEntry.convertWithOffsets { startOffset, endOffset ->
-                irEnumEntry.initializerExpression = irFactory.createExpressionBody(
+                irEnumEntry.initializerExpression = IrFactoryImpl.createExpressionBody(
                     IrEnumConstructorCallImpl(
                         startOffset, endOffset, irType, constructor.symbol,
-                        valueArgumentsCount = constructor.valueParameters.size,
                         typeArgumentsCount = constructor.typeParameters.size
                     )
                 )
@@ -237,13 +234,16 @@ class Fir2IrVisitor(
                 val origin = if (isSelf) IrDeclarationOrigin.INSTANCE_RECEIVER else IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER
                 val irReceiver =
                     receiver.convertWithOffsets { startOffset, endOffset ->
-                        irFactory.createValueParameter(
+                        IrFactoryImpl.createValueParameter(
                             startOffset, endOffset, origin, name, receiver.typeRef.toIrType(c), isAssignable = false,
                             IrValueParameterSymbolImpl(),
-                            if (isSelf) UNDEFINED_PARAMETER_INDEX else index,
                             varargElementType = null, isCrossinline = false, isNoinline = false, isHidden = false
                         ).also {
                             it.parent = irScript
+                            if (!isSelf) {
+                                @OptIn(DelicateIrParameterIndexSetter::class)
+                                it.index = index
+                            }
                         }
                     }
                 if (isSelf) {
@@ -336,10 +336,10 @@ class Fir2IrVisitor(
         declarationStorage.enterScope(irFunction.symbol)
         conversionScope.withParent(irFunction) {
             irFunction.body = if (configuration.skipBodies) {
-                irFactory.createExpressionBody(IrConstImpl.defaultValueForType(UNDEFINED_OFFSET, UNDEFINED_OFFSET, irFunction.returnType))
+                IrFactoryImpl.createExpressionBody(IrConstImpl.defaultValueForType(UNDEFINED_OFFSET, UNDEFINED_OFFSET, irFunction.returnType))
             } else {
                 val irBlock = codeFragment.block.convertToIrBlock(forceUnitType = false)
-                irFactory.createExpressionBody(irBlock)
+                IrFactoryImpl.createExpressionBody(irBlock)
             }
         }
         declarationStorage.leaveScope(irFunction.symbol)
@@ -401,7 +401,7 @@ class Fir2IrVisitor(
         declarationStorage.enterScope(irAnonymousInitializer.symbol)
         conversionScope.withInitBlock(irAnonymousInitializer) {
             irAnonymousInitializer.body =
-                if (configuration.skipBodies) irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
+                if (configuration.skipBodies) IrFactoryImpl.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
                 else convertToIrBlockBody(anonymousInitializer.body!!)
         }
         declarationStorage.leaveScope(irAnonymousInitializer.symbol)
@@ -883,7 +883,7 @@ class Fir2IrVisitor(
     }
 
     override fun visitLiteralExpression(literalExpression: FirLiteralExpression, data: Any?): IrElement {
-        return literalExpression.toIrConst<Any?>(literalExpression.resolvedType.toIrType(c))
+        return literalExpression.toIrConst(literalExpression.resolvedType.toIrType(c))
     }
 
     // ==================================================================================
@@ -1012,7 +1012,7 @@ class Fir2IrVisitor(
     internal fun convertToIrBlockBody(block: FirBlock): IrBlockBody {
         return block.convertWithOffsets { startOffset, endOffset ->
             val irStatements = block.statements.mapToIrStatements()
-            irFactory.createBlockBody(
+            IrFactoryImpl.createBlockBody(
                 startOffset, endOffset,
                 if (irStatements.isNotEmpty()) {
                     irStatements.filterNotNull().takeIf { it.isNotEmpty() }
@@ -1202,16 +1202,25 @@ class Fir2IrVisitor(
                 IrGetValueImpl(startOffset, endOffset, irLhsVariable.type, irLhsVariable.symbol)
 
             val originalType = elvisExpression.lhs.resolvedType
-            val notNullType = originalType.withNullability(ConeNullability.NOT_NULL, session.typeContext)
+            val notNullType = originalType.withNullability(nullable = false, session.typeContext)
             val irBranches = listOf(
                 IrBranchImpl(
                     startOffset, endOffset,
-                    primitiveOp2(
-                        startOffset, endOffset, builtins.eqeqSymbol,
-                        builtins.booleanType, IrStatementOrigin.EQEQ,
-                        irGetLhsValue(),
-                        IrConstImpl.constNull(startOffset, endOffset, builtins.nothingNType)
-                    ),
+                    IrCallImplWithShape(
+                        startOffset = startOffset,
+                        endOffset = endOffset,
+                        type = builtins.booleanType,
+                        symbol = builtins.eqeqSymbol,
+                        typeArgumentsCount = 0,
+                        valueArgumentsCount = 2,
+                        contextParameterCount = 0,
+                        hasDispatchReceiver = false,
+                        hasExtensionReceiver = false,
+                        origin = IrStatementOrigin.EQEQ,
+                    ).apply {
+                        putValueArgument(0, irGetLhsValue())
+                        putValueArgument(1, IrConstImpl.constNull(startOffset, endOffset, builtins.nothingNType))
+                    },
                     convertToIrExpression(elvisExpression.rhs)
                         .insertImplicitCast(elvisExpression, elvisExpression.rhs.resolvedType, elvisExpression.resolvedType)
                 ),
@@ -1263,11 +1272,14 @@ class Fir2IrVisitor(
                     flattenElse = origin == IrStatementOrigin.IF,
                 )
                 if (isProperlyExhaustive && whenExpression.branches.none { it.condition is FirElseIfTrueCondition }) {
-                    val irResult = IrCallImpl(
+                    val irResult = IrCallImplWithShape(
                         startOffset, endOffset, builtins.nothingType,
                         builtins.noWhenBranchMatchedExceptionSymbol,
                         typeArgumentsCount = 0,
-                        valueArgumentsCount = 0
+                        valueArgumentsCount = 0,
+                        contextParameterCount = 0,
+                        hasDispatchReceiver = false,
+                        hasExtensionReceiver = false,
                     )
                     irBranches += IrElseBranchImpl(
                         IrConstImpl.boolean(startOffset, endOffset, builtins.booleanType, true), irResult
@@ -1502,7 +1514,12 @@ class Fir2IrVisitor(
 
     override fun visitThrowExpression(throwExpression: FirThrowExpression, data: Any?): IrElement {
         return throwExpression.convertWithOffsets { startOffset, endOffset ->
-            IrThrowImpl(startOffset, endOffset, builtins.nothingType, convertToIrExpression(throwExpression.exception))
+            val expression = convertToIrExpression(throwExpression.exception)
+            val expressionWithCast = expression.applyIf(!expression.type.isSubtypeOfClass(builtins.throwableClass)) {
+                Fir2IrImplicitCastInserter.implicitCastOrExpression(this, builtins.throwableType)
+            }
+
+            IrThrowImpl(startOffset, endOffset, builtins.nothingType, expressionWithCast)
         }
     }
 
@@ -1545,7 +1562,7 @@ class Fir2IrVisitor(
             var endArgumentOffset = -1
             for (firArgument in stringConcatenationCall.arguments) {
                 val argument = convertToIrExpression(firArgument)
-                if (argument is IrConst<*> && argument.kind == IrConstKind.String) {
+                if (argument is IrConst && argument.kind == IrConstKind.String) {
                     if (sb.isEmpty()) {
                         startArgumentOffset = argument.startOffset
                     }
@@ -1594,12 +1611,15 @@ class Fir2IrVisitor(
         session, checkNotNullCall
     ) {
         return checkNotNullCall.convertWithOffsets { startOffset, endOffset ->
-            IrCallImpl(
+            IrCallImplWithShape(
                 startOffset, endOffset,
                 checkNotNullCall.resolvedType.toIrType(c),
                 builtins.checkNotNullSymbol,
                 typeArgumentsCount = 1,
                 valueArgumentsCount = 1,
+                contextParameterCount = 0,
+                hasDispatchReceiver = false,
+                hasExtensionReceiver = false,
                 origin = IrStatementOrigin.EXCLEXCL
             ).apply {
                 putTypeArgument(0, checkNotNullCall.argument.resolvedType.toIrType(c).makeNotNull())

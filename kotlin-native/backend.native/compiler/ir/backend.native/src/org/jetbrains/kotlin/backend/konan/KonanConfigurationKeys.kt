@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
-import org.jetbrains.kotlin.config.IrVerificationMode
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.KonanTarget
 
@@ -107,9 +106,7 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("compiler output kind")
         val PURGE_USER_LIBS: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("purge user-specified libs too")
-        val REPOSITORIES: CompilerConfigurationKey<List<String>>
-                = CompilerConfigurationKey.create("library search path repositories")
-        val RUNTIME_FILE: CompilerConfigurationKey<String?> 
+        val RUNTIME_FILE: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("override default runtime file path")
         val INCLUDED_LIBRARIES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey("klibs processed in the same manner as source files")
@@ -127,6 +124,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("verify bitcode")
         val VERIFY_COMPILER: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("verify compiler")
+        val WRITE_DEPENDENCIES_OF_PRODUCED_KLIB_TO: CompilerConfigurationKey<String?>
+                = CompilerConfigurationKey.create("write dependencies of the klib being produced to the given path")
         val DEBUG_INFO_VERSION: CompilerConfigurationKey<Int>
                 = CompilerConfigurationKey.create("debug info format version")
         val OBJC_GENERICS: CompilerConfigurationKey<Boolean>

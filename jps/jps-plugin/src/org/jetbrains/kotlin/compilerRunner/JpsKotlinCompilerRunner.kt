@@ -355,6 +355,7 @@ class JpsKotlinCompilerRunner {
         with(settings) {
             buildFile = moduleFile.absolutePath
             destination = null
+            noStdlib = true
             noReflect = true
             noJdk = true
         }
@@ -371,7 +372,6 @@ class JpsKotlinCompilerRunner {
         with(settings) {
             freeArgs = allSourceFiles.map { it.path }.toMutableList()
             irProduceKlibDir = true
-            irOnly = true
             commonSources = _commonSources.map { it.path }.toTypedArray()
             outputDir = _outputFile.parent
             moduleName = _outputFile.nameWithoutExtension

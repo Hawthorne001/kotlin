@@ -53,7 +53,7 @@ class WeakRef;
 // * During roots list traversal all nodes to the left are either marked or inserted into the mark queue.
 class SpecialRefRegistry : private Pinned {
     // TODO: Consider using a real mutex.
-    using Mutex = SpinLock<MutexThreadStateHandling::kIgnore>;
+    using Mutex = SpinLock;
 
     class Node : private Pinned {
     public:
@@ -108,6 +108,14 @@ class SpecialRefRegistry : private Pinned {
                 RuntimeAssert(rc >= 0, "Dereferencing StableRef@%p with rc %d", this, rc);
             }
             return objAtomic().load(std::memory_order_relaxed);
+        }
+
+        [[nodiscard("expensive pure function")]] const TypeInfo* typeInfo() const noexcept {
+            if (compiler::runtimeAssertsEnabled()) {
+                auto rc = rc_.load(std::memory_order_relaxed);
+                RuntimeAssert(rc > 0, "Getting typeInfo of StableRef@%p with rc %d", this, rc);
+            }
+            return objAtomic().load(std::memory_order_relaxed)->type_info();
         }
 
         OBJ_GETTER0(tryRef) noexcept {

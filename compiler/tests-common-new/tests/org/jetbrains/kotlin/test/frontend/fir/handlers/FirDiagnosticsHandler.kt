@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.checkers.utils.TypeOfCall
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.config.AnalysisFlag
 import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.diagnostics.rendering.Renderers
@@ -435,7 +436,6 @@ private val KtSourceElement.parentAsSourceElement: KtSourceElement?
         KtNodeTypes.REFERENCE_EXPRESSION -> when (this) {
             is KtPsiSourceElement -> psi.parent.toKtPsiSourceElement(kind)
             is KtLightSourceElement -> treeStructure.getParent(lighterASTNode)?.toKtLightSourceElement(treeStructure, kind)
-            else -> null
         }
         else -> null
     }
@@ -446,7 +446,6 @@ private val KtSourceElement.operatorSignIfBinary: KtSourceElement?
             is KtPsiSourceElement -> (psi as? KtBinaryExpression)?.operationReference?.toKtPsiSourceElement(kind)
             is KtLightSourceElement -> treeStructure.findChildByType(lighterASTNode, KtNodeTypes.OPERATION_REFERENCE)
                 ?.toKtLightSourceElement(treeStructure, kind)
-            else -> null
         }
         else -> null
     }
@@ -677,10 +676,13 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
         val result = listMultimapOf<FirFile, DiagnosticWithKmpCompilationMode>()
 
         lazyDeclarationResolver.disableLazyResolveContractChecksInside {
+            val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(platformPart.module)
+            val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+
             result += platformPart.session.runCheckers(
                 platformPart.firAnalyzerFacade.scopeSession,
                 allFiles,
-                DiagnosticReporterFactory.createPendingReporter(),
+                DiagnosticReporterFactory.createPendingReporter(messageCollector),
                 mppCheckerKind = MppCheckerKind.Platform
             ).mapValues { entry -> entry.value.map { DiagnosticWithKmpCompilationMode(it, KmpCompilationMode.PLATFORM) } }
 
@@ -688,7 +690,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                 result += part.session.runCheckers(
                     part.firAnalyzerFacade.scopeSession,
                     part.firFiles.values,
-                    DiagnosticReporterFactory.createPendingReporter(),
+                    DiagnosticReporterFactory.createPendingReporter(messageCollector),
                     mppCheckerKind = MppCheckerKind.Common
                 ).mapValues { entry -> entry.value.map { DiagnosticWithKmpCompilationMode(it, KmpCompilationMode.PLATFORM) } }
             }
@@ -698,7 +700,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                     result += part.session.runCheckers(
                         part.firAnalyzerFacade.scopeSession,
                         part.firFiles.values,
-                        DiagnosticReporterFactory.createPendingReporter(),
+                        DiagnosticReporterFactory.createPendingReporter(messageCollector),
                         mppCheckerKind = MppCheckerKind.Platform
                     ).mapValues { entry -> entry.value.map { DiagnosticWithKmpCompilationMode(it, KmpCompilationMode.METADATA) } }
                 }
@@ -711,7 +713,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                     platformPart.session.collectLostDiagnosticsOnFile(
                         platformPart.firAnalyzerFacade.scopeSession,
                         file,
-                        DiagnosticReporterFactory.createPendingReporter()
+                        DiagnosticReporterFactory.createPendingReporter(messageCollector)
                     ).forEach { lostDiagnostics.put(file, DiagnosticWithKmpCompilationMode(it, KmpCompilationMode.PLATFORM)) }
                 }
             }

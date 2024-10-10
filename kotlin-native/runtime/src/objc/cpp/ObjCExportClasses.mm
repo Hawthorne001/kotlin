@@ -21,6 +21,9 @@
 #import "Runtime.h"
 #import "concurrent/Mutex.hpp"
 #import "Exceptions.h"
+#include "ExternalRCRef.hpp"
+#include "swiftExportRuntime/SwiftExport.hpp"
+#include "StackTrace.hpp"
 
 @interface NSObject (NSObjectPrivateMethods)
 // Implemented for NSObject in libobjc/NSObject.mm
@@ -58,6 +61,10 @@ extern "C" OBJ_GETTER(Kotlin_toString, KRef obj);
   if (self == [KotlinBase class]) {
     injectToRuntime(); // In case `initialize` is called before `load` (see e.g. https://youtrack.jetbrains.com/issue/KT-50982).
     Kotlin_ObjCExport_initialize();
+  }
+  if (kotlin::compiler::swiftExport()) {
+      // Swift Export generates types that don't need to be additionally initialized.
+      return;
   }
   Kotlin_ObjCExport_initializeClass(self);
 }
@@ -165,12 +172,26 @@ extern "C" OBJ_GETTER(Kotlin_toString, KRef obj);
   return [self retain];
 }
 
-// TODO: KT-69636 - obtain the most appropriate wrapper type and replace self with the instance of it
 - (instancetype)initWithExternalRCRef:(uintptr_t)ref {
-
-    kotlin::CalledFromNativeGuard guard;
-
     RuntimeAssert(kotlin::compiler::swiftExport(), "Must be used in Swift Export only");
+    kotlin::AssertThreadState(kotlin::ThreadState::kNative);
+
+    Class bestFittingClass =
+            kotlin::swiftExportRuntime::bestFittingObjCClassFor(kotlin::mm::externalRCRefType(reinterpret_cast<void*>(ref)));
+    if ([self class] != bestFittingClass) {
+        if ([[self class] isSubclassOfClass:bestFittingClass]) {
+            konan::consoleErrorf(
+                    "Inheritance from Kotlin exported classes is not supported: %s inherits from %s\n", class_getName([self class]),
+                    class_getName(bestFittingClass));
+            kotlin::PrintStackTraceStderr();
+            std::abort();
+        }
+        RuntimeAssert(
+                [bestFittingClass isSubclassOfClass:[self class]], "Best-fitting class is %s which is not a subclass of self (%s)",
+                class_getName(bestFittingClass), class_getName([self class]));
+        // Rerun the entire initializer, but with the best-fitting class now.
+        return [[bestFittingClass alloc] initWithExternalRCRef:ref];
+    }
 
     permanent = refHolder.initWithExternalRCRef(reinterpret_cast<void*>(ref));
     if (permanent) {
@@ -178,31 +199,33 @@ extern "C" OBJ_GETTER(Kotlin_toString, KRef obj);
         return self;
     }
 
-    // ref holds a strong reference to obj, no need to place obj onto a stack.
-    auto obj = refHolder.ref();
+    id newSelf = nil;
+    {
+        // TODO: Make it okay to get/replace associated objects w/o runnable state.
+        kotlin::CalledFromNativeGuard guard;
+        // `ref` holds a strong reference to obj, no need to place obj onto a stack.
+        KRef obj = refHolder.ref();
+        newSelf = AtomicCompareAndSwapAssociatedObject(obj, nullptr, self);
+    }
 
-    id old = AtomicCompareAndSwapAssociatedObject(obj, nullptr, self);
-    if (old == nil) {
-        // Kotlin object did not have an associated object attached.
+    if (newSelf == nil) {
+        // No previous associated object was set, `self` is the associated object.
         return self;
     }
 
-    // Kotlin object did have an associated object attached.
     RuntimeAssert(
-        [[old class] isSubclassOfClass:[self class]],
-        "Object %p had associated object of type %s but we try to init with %s",
-        obj, class_getName([old class]), class_getName([self class])
-    );
+            [[newSelf class] isSubclassOfClass:[self class]],
+            "During initialization of %p (%s) for Kotlin object %p trying to replace self with %p (%s) that is not a subclass", self,
+            class_getName([self class]), refHolder.ref(), newSelf, class_getName([newSelf class]));
 
-    // Make self point to that object.
-    KotlinBase* retiredSelf = self;
-    self = objc_retain(old);
+    KotlinBase* retiredSelf = self; // old `self`
+    self = [newSelf retain]; // new `self`, retained.
 
-    retiredSelf->refHolder.releaseRef();
-    kotlin::CallsCheckerIgnoreGuard callsCheckerGuard;
-    // retiredSelf is safe to dealloc right in the Runnable state as it cannot not lead to any long-running or blocking calls.
-    [retiredSelf releaseAsAssociatedObject];
+    // Fully release old `self`:
+    [retiredSelf release]; // decrement SpecialRef refcount,
+    [retiredSelf releaseAsAssociatedObject]; // and decrement NSObject refcount.
 
+    // Return new `self`.
     return self;
 }
 
@@ -293,22 +316,26 @@ OBJ_GETTER(Kotlin_boxDouble, KDouble value);
 -(ObjHeader*)toKotlin:(ObjHeader**)OBJ_RESULT {
   const char* type = self.objCType;
 
-  // TODO: the code below makes some assumption on char, short, int and long sizes.
+  {
+    // Extracting known primitive numbers and boxing them should be fast enough.
+    kotlin::CallsCheckerIgnoreGuard guard;
 
-  switch (type[0]) {
-    case 'c': RETURN_RESULT_OF(Kotlin_boxByte, self.charValue);
-    case 's': RETURN_RESULT_OF(Kotlin_boxShort, self.shortValue);
-    case 'i': RETURN_RESULT_OF(Kotlin_boxInt, self.intValue);
-    case 'q': RETURN_RESULT_OF(Kotlin_boxLong, self.longLongValue);
-    case 'C': RETURN_RESULT_OF(Kotlin_boxUByte, self.unsignedCharValue);
-    case 'S': RETURN_RESULT_OF(Kotlin_boxUShort, self.unsignedShortValue);
-    case 'I': RETURN_RESULT_OF(Kotlin_boxUInt, self.unsignedIntValue);
-    case 'Q': RETURN_RESULT_OF(Kotlin_boxULong, self.unsignedLongLongValue);
-    case 'f': RETURN_RESULT_OF(Kotlin_boxFloat, self.floatValue);
-    case 'd': RETURN_RESULT_OF(Kotlin_boxDouble, self.doubleValue);
-
-    default:  RETURN_RESULT_OF(Kotlin_ObjCExport_convertUnmappedObjCObject, self);
+    // TODO: the code below makes some assumption on char, short, int and long sizes.
+    switch (type[0]) {
+      case 'c': RETURN_RESULT_OF(Kotlin_boxByte, self.charValue);
+      case 's': RETURN_RESULT_OF(Kotlin_boxShort, self.shortValue);
+      case 'i': RETURN_RESULT_OF(Kotlin_boxInt, self.intValue);
+      case 'q': RETURN_RESULT_OF(Kotlin_boxLong, self.longLongValue);
+      case 'C': RETURN_RESULT_OF(Kotlin_boxUByte, self.unsignedCharValue);
+      case 'S': RETURN_RESULT_OF(Kotlin_boxUShort, self.unsignedShortValue);
+      case 'I': RETURN_RESULT_OF(Kotlin_boxUInt, self.unsignedIntValue);
+      case 'Q': RETURN_RESULT_OF(Kotlin_boxULong, self.unsignedLongLongValue);
+      case 'f': RETURN_RESULT_OF(Kotlin_boxFloat, self.floatValue);
+      case 'd': RETURN_RESULT_OF(Kotlin_boxDouble, self.doubleValue);
+    }
   }
+
+  RETURN_RESULT_OF(Kotlin_ObjCExport_convertUnmappedObjCObject, self);
 }
 @end
 

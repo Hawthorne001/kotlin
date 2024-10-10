@@ -35,7 +35,7 @@ import kotlin.time.*
  * are less desirable than cyclical garbage leaks.
  */
 @Deprecated("Use kotlin.native.runtime.GC instead.", ReplaceWith("GC", "kotlin.native.runtime.GC"))
-@DeprecatedSinceKotlin(warningSince = "1.9")
+@DeprecatedSinceKotlin(warningSince = "1.9", errorSince = "2.1")
 @OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
 object GC {
     /**
@@ -44,14 +44,12 @@ object GC {
      * Legacy MM: force garbage collection immediately, unless collector is stopped
      * with [stop] operation. Even if GC is suspended, [collect] still triggers collection.
      */
-    @GCUnsafeCall("Kotlin_native_internal_GC_collect")
-    external fun collect()
+    fun collect(): Unit = kotlin.native.runtime.GC.collect()
 
     /**
      * Trigger new collection without waiting for its completion.
      */
-     @GCUnsafeCall("Kotlin_native_internal_GC_schedule")
-     external fun schedule()
+     fun schedule(): Unit = kotlin.native.runtime.GC.schedule()
 
     /**
      * Deprecated and unused.
@@ -244,7 +242,7 @@ object GC {
      * Legacy MM: Always returns null
      */
     @ExperimentalStdlibApi
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     val lastGCInfo: kotlin.native.internal.gc.GCInfo?
         get() = kotlin.native.internal.gc.GCInfo.lastGCInfo
 }

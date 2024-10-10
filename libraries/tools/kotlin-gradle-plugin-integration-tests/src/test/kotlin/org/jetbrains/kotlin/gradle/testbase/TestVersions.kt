@@ -26,10 +26,11 @@ interface TestVersions {
         const val G_8_7 = "8.7"
         const val G_8_8 = "8.8"
         const val G_8_9 = "8.9"
+        const val G_8_10 = "8.10"
 
         // Should be the same as GradleCompatibilityCheck.minSupportedGradleVersion
         const val MIN_SUPPORTED = MINIMALLY_SUPPORTED_GRADLE_VERSION
-        const val MAX_SUPPORTED = G_8_9
+        const val MAX_SUPPORTED = G_8_10
     }
 
     object Kotlin {
@@ -69,8 +70,8 @@ interface TestVersions {
         AGP_82(AGP.AGP_82, GradleVersion.version(Gradle.G_8_2), GradleVersion.version(Gradle.G_8_4), JavaVersion.VERSION_17),
         AGP_83(AGP.AGP_83, GradleVersion.version(Gradle.G_8_4), GradleVersion.version(Gradle.G_8_8), JavaVersion.VERSION_17),
         AGP_84(AGP.AGP_84, GradleVersion.version(Gradle.G_8_6), GradleVersion.version(Gradle.G_8_8), JavaVersion.VERSION_17),
-        AGP_85(AGP.AGP_85, GradleVersion.version(Gradle.G_8_7), GradleVersion.version(Gradle.G_8_9), JavaVersion.VERSION_17),
-        AGP_86(AGP.AGP_86, GradleVersion.version(Gradle.G_8_7), GradleVersion.version(Gradle.G_8_9), JavaVersion.VERSION_17),
+        AGP_85(AGP.AGP_85, GradleVersion.version(Gradle.G_8_7), GradleVersion.version(Gradle.G_8_10), JavaVersion.VERSION_17),
+        AGP_86(AGP.AGP_86, GradleVersion.version(Gradle.G_8_7), GradleVersion.version(Gradle.G_8_10), JavaVersion.VERSION_17),
         ;
 
         companion object {
@@ -89,9 +90,16 @@ interface TestVersions {
     }
 
     object ThirdPartyDependencies {
-        const val SHADOW_PLUGIN_VERSION = "8.1.7"
+        const val SHADOW_PLUGIN_VERSION = "8.3.0"
         const val GOOGLE_DAGGER = "2.24"
         const val GRADLE_ENTERPRISE_PLUGIN_VERSION = "3.13.4"
-        const val KOTLINX_ATOMICFU = "0.23.2"
+        const val GRADLE_DEVELOCITY_PLUGIN_VERSION = "3.18"
+        const val KOTLINX_ATOMICFU = "0.25.0"
+        const val KOTLINX_KOVER = "0.9.0-RC"
+        const val KOTLINX_BINARY_COMPATIBILITY_VALIDATOR = "0.16.3"
+        const val DOKKA = "1.8.10"
+        // TODO KT-70336 update Dokka version to a stable version when 2.0.0 is released 
+        const val DOKKA_V2 = "2.0.20-dev-360"
     }
+
 }

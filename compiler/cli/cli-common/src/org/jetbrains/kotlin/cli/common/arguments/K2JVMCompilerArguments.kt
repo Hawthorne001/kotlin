@@ -189,7 +189,7 @@ to force diagnostics to be reported."""
     @Argument(
         value = "-Xbackend-threads",
         valueDescription = "<N>",
-        description = """When using the IR backend, run lowerings by file in N parallel threads.
+        description = """Run codegen phase in N parallel threads.
 0 means use one thread per processor core.
 The default value is 1."""
     )
@@ -563,7 +563,7 @@ default: 'indy-with-constants' for JVM targets 9 or greater, 'inline' otherwise.
         value = "-Xjdk-release",
         valueDescription = "<version>",
         description = """Compile against the specified JDK API version, similarly to javac's '-release'. This requires JDK 9 or newer.
-The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–22.
+The supported versions depend on the JDK used; for JDK 17+, the supported versions are ${JvmTarget.SUPPORTED_VERSIONS_DESCRIPTION}.
 This also sets the value of '-jvm-target' to be equal to the selected JDK version."""
     )
     var jdkRelease: String? = null
@@ -808,10 +808,10 @@ This option is deprecated and will be deleted in future versions."""
         }
 
     @Argument(
-        value = "-Xuse-kapt4",
-        description = "Enable the experimental KAPT 4."
+        value = "-Xuse-k2-kapt",
+        description = "Enable the experimental support for K2 KAPT."
     )
-    var useKapt4 = false
+    var useK2Kapt = false
         set(value) {
             checkFrozen()
             field = value

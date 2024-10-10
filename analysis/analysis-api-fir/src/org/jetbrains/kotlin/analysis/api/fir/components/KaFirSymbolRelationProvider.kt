@@ -31,11 +31,14 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.util.getContainingFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.originalDeclaration
 import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
 import org.jetbrains.kotlin.fir.FirElementWithResolveState
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.getImplementationStatus
+import org.jetbrains.kotlin.fir.containingClassForLocalAttr
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirScript
 import org.jetbrains.kotlin.fir.declarations.expectForActual
@@ -44,23 +47,22 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeDestructuringDeclarationsOnTopLe
 import org.jetbrains.kotlin.fir.resolve.FirSamResolver
 import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirErrorPropertySymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
+import org.jetbrains.kotlin.fir.resolve.toSymbol
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.unwrapFakeOverridesOrDelegated
 import org.jetbrains.kotlin.ir.util.kotlinPackageFqn
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.parents
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectActualMatchingCompatibility
 import org.jetbrains.kotlin.util.ImplementationStatus
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 internal class KaFirSymbolRelationProvider(
-    override val analysisSessionProvider: () -> KaFirSession
+    override val analysisSessionProvider: () -> KaFirSession,
 ) : KaSessionComponent<KaFirSession>(), KaSymbolRelationProvider, KaFirSessionComponent {
     override val KaSymbol.containingSymbol: KaSymbol?
         get() = withValidityAssertion {
@@ -98,7 +100,8 @@ internal class KaFirSymbolRelationProvider(
                 is KaLocalVariableSymbol,
                 is KaAnonymousFunctionSymbol,
                 is KaAnonymousObjectSymbol,
-                is KaDestructuringDeclarationSymbol -> {
+                is KaDestructuringDeclarationSymbol,
+                    -> {
                     return getContainingDeclarationByPsi(this)
                 }
 
@@ -127,16 +130,21 @@ internal class KaFirSymbolRelationProvider(
                 }
 
                 is KaClassLikeSymbol -> {
-                    val outerClassId = classId?.outerClassId
-                    if (outerClassId != null) { // Won't work for local and top-level classes, or classes inside a script
-                        val outerFirClassifier = symbolFirSession.firProvider.getFirClassifierByFqName(outerClassId) ?: return null
+                    firSymbol.getContainingClassSymbol()?.let { outerFirClassifier ->
                         return firSymbolBuilder.buildSymbol(outerFirClassifier) as? KaDeclarationSymbol
                     }
+                    getContainingDeclarationsForLocalClass(firSymbol, symbolFirSession)?.let { return it }
                 }
             }
 
             return getContainingDeclarationByPsi(this)
         }
+
+    private fun getContainingDeclarationsForLocalClass(firSymbol: FirBasedSymbol<*>, symbolFirSession: FirSession): KaDeclarationSymbol? {
+        val fir = firSymbol.fir as? FirRegularClass ?: return null
+        val containerSymbol = fir.containingClassForLocalAttr?.toSymbol(symbolFirSession) ?: return null
+        return firSymbolBuilder.classifierBuilder.buildClassLikeSymbol(containerSymbol)
+    }
 
     private fun hasParentSymbol(symbol: KaSymbol): Boolean {
         when (symbol) {
@@ -204,7 +212,7 @@ internal class KaFirSymbolRelationProvider(
             val firSymbol = when (this) {
                 is KaFirReceiverParameterSymbol -> {
                     // symbol from receiver parameter
-                    firSymbol
+                    owningFirSymbol
                 }
                 else -> {
                     // general FIR-based symbol
@@ -294,6 +302,18 @@ internal class KaFirSymbolRelationProvider(
             KtFakeSourceElementKind.EnumInitializer -> source.psi as KtEnumEntry
             KtFakeSourceElementKind.EnumGeneratedDeclaration -> source.psi as KtDeclaration
             KtFakeSourceElementKind.ScriptParameter -> source.psi as KtScript
+            KtFakeSourceElementKind.DataClassGeneratedMembers -> when (val source = source.psi) {
+                is KtClassOrObject -> {
+                    // for generated `equals`, `hashCode`, `toString` methods the source is the containing `KtClass`
+                    source
+                }
+                is KtParameter -> {
+                    // for `componentN` functions, the source points to the parameter by which the `componentN` function was generated
+                    val constructor = source.ownerFunction as KtPrimaryConstructor
+                    constructor.containingClassOrObject!!
+                }
+                else -> null
+            }
             else -> null
         }
     }

@@ -139,7 +139,7 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
         val JVM_RECORD_NOT_VAL_PARAMETER by error<PsiElement>()
         val JVM_RECORD_NOT_LAST_VARARG_PARAMETER by error<PsiElement>()
         val INNER_JVM_RECORD by error<PsiElement>(PositioningStrategy.INNER_MODIFIER)
-        val FIELD_IN_JVM_RECORD by error<PsiElement>()
+        val FIELD_IN_JVM_RECORD by error<PsiElement>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val DELEGATION_BY_IN_JVM_RECORD by error<PsiElement>()
         val JVM_RECORD_EXTENDS_CLASS by error<PsiElement>(PositioningStrategy.ACTUAL_DECLARATION_NAME) {
             parameter<ConeKotlinType>("superType")
@@ -169,9 +169,9 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
 
     val EXTERNAL_DECLARATION by object : DiagnosticGroup("External Declaration") {
         val EXTERNAL_DECLARATION_CANNOT_BE_ABSTRACT by error<KtDeclaration>(PositioningStrategy.ABSTRACT_MODIFIER)
-        val EXTERNAL_DECLARATION_CANNOT_HAVE_BODY by error<KtDeclaration>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val EXTERNAL_DECLARATION_IN_INTERFACE by error<KtDeclaration>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val EXTERNAL_DECLARATION_CANNOT_BE_INLINED by error<KtDeclaration>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val EXTERNAL_DECLARATION_CANNOT_HAVE_BODY by error<KtDeclaration>(PositioningStrategy.EXTERNAL_MODIFIER)
+        val EXTERNAL_DECLARATION_IN_INTERFACE by error<KtDeclaration>(PositioningStrategy.EXTERNAL_MODIFIER)
+        val EXTERNAL_DECLARATION_CANNOT_BE_INLINED by error<KtDeclaration>(PositioningStrategy.EXTERNAL_MODIFIER)
     }
 
     val REPEATABLE by object : DiagnosticGroup("Repeatable Annotations") {

@@ -70,6 +70,17 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
     }
 
     @Test
+    fun `test - sameFunctionNameInDifferentClass`() {
+        doTest(headersTestDataDir.resolve("sameFunctionNameInDifferentClass"))
+    }
+
+    @Test
+    @TodoAnalysisApi
+    fun `test - sameFunctionNameInDifferentInterface`() {
+        doTest(headersTestDataDir.resolve("sameFunctionNameInDifferentInterface"))
+    }
+
+    @Test
     fun `test - nestedClass`() {
         doTest(headersTestDataDir.resolve("nestedClass"))
     }
@@ -90,7 +101,6 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
     }
 
     @Test
-    @TodoAnalysisApi
     fun `test - samePropertyAndFunctionName`() {
         doTest(headersTestDataDir.resolve("samePropertyAndFunctionName"))
     }
@@ -140,7 +150,11 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
         doTest(headersTestDataDir.resolve("classWithHidesFromObjCAnnotation"))
     }
 
+    /**
+     * Disabled because of init constructors order KT-70626
+     */
     @Test
+    @TodoAnalysisApi
     fun `test - functionWithThrowsAnnotation`() {
         doTest(headersTestDataDir.resolve("functionWithThrowsAnnotation"))
     }
@@ -306,7 +320,6 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
      * KT-66066
      */
     @Test
-    @TodoAnalysisApi
     fun `test - member function signature order`() {
         doTest(headersTestDataDir.resolve("memberFunctionSignatureOrder"))
     }
@@ -483,6 +496,76 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
     @Test
     fun `test - interface extension`() {
         doTest(headersTestDataDir.resolve("interfaceExtension"))
+    }
+
+    @Test
+    fun `test - collection type arguments`() {
+        doTest(headersTestDataDir.resolve("collectionTypeArguments"))
+    }
+
+    @Test
+    fun `test - extension order`() {
+        doTest(headersTestDataDir.resolve("extensionOrder"))
+    }
+
+    @Test
+    fun `test - basicConstructorWithUpperBoundParameters`() {
+        doTest(headersTestDataDir.resolve("basicConstructorWithUpperBoundParameters"))
+    }
+
+    @Test
+    fun `test - basicMethodParameterWithUpperBound`() {
+        doTest(headersTestDataDir.resolve("basicMethodParameterWithUpperBound"))
+    }
+
+    @Test
+    fun `test - methodWithMultipleUpperBoundsParameters`() {
+        doTest(headersTestDataDir.resolve("methodWithMultipleUpperBoundsParameters"))
+    }
+
+    @Test
+    fun `test - basicGenericsInAndOut`() {
+        doTest(headersTestDataDir.resolve("basicGenericsInAndOut"))
+    }
+
+    @Test
+    fun `test - methodWithMultipleTypeParameters`() {
+        doTest(headersTestDataDir.resolve("methodWithMultipleTypeParameters"))
+    }
+
+    @Test
+    fun `test - enum c-keywords and special names translation`() {
+        doTest(headersTestDataDir.resolve("enumCKeywordsAndSpecialNamesTranslation"))
+    }
+
+    @Test
+    fun `test - KotlinUnit is forwarded`() {
+        doTest(headersTestDataDir.resolve("kotlinUnitIsForwarded"))
+    }
+
+    @Test
+    fun `test - nullable functional type arguments and return types translated`() {
+        doTest(headersTestDataDir.resolve("nullableFunctionalTypeArgumentsAndReturnTypesTranslated"))
+    }
+
+    @Test
+    fun `test - methods mangling`() {
+        doTest(headersTestDataDir.resolve("methodsMangling"))
+    }
+
+    @Test
+    fun `test - methods mangling with the same parameter names`() {
+        doTest(headersTestDataDir.resolve("methodsManglingWithTheSameParameterNames"))
+    }
+
+    @Test
+    fun `test - mangle receiver`() {
+        doTest(headersTestDataDir.resolve("mangleReceiver"))
+    }
+
+    @Test
+    fun `test - mangle property`() {
+        doTest(headersTestDataDir.resolve("mangleProperty"))
     }
 
     private fun doTest(root: File, configuration: Configuration = Configuration()) {

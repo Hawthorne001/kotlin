@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.jvm.addModularRootIfNotNull
 import org.jetbrains.kotlin.cli.jvm.config.*
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
@@ -138,7 +139,6 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
             TestJdkKind.FULL_JDK -> getJdkHomeFromProperty {
                 runIf(JavaVersion.current() >= JavaVersion.compose(9)) { File(System.getProperty("java.home")) }
             }
-            TestJdkKind.ANDROID_API -> null
         }
 
         inline fun getJdkHomeFromProperty(onNull: () -> File?): File? {
@@ -155,7 +155,6 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         fun getJdkClasspathRoot(jdkKind: TestJdkKind): File? = when (jdkKind) {
             TestJdkKind.MOCK_JDK -> KtTestUtil.findMockJdkRtJar()
             TestJdkKind.MODIFIED_MOCK_JDK -> KtTestUtil.findMockJdkRtModified()
-            TestJdkKind.ANDROID_API -> KtTestUtil.findAndroidApiJar()
             TestJdkKind.FULL_JDK_11 -> null
             TestJdkKind.FULL_JDK_17 -> null
             TestJdkKind.FULL_JDK_21 -> null
@@ -200,12 +199,16 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         configureDefaultJvmTarget(configuration)
         val registeredDirectives = module.directives
 
+        if (ConfigurationDirectives.WITH_KOTLIN_JVM_ANNOTATIONS in module.directives) {
+            configuration.addJvmClasspathRoot(ForTestCompileRuntime.jvmAnnotationsForTests())
+        }
+
         val jdkKind = extractJdkKind(registeredDirectives)
         getJdkHome(jdkKind)?.let { configuration.put(JVMConfigurationKeys.JDK_HOME, it) }
         getJdkClasspathRoot(jdkKind)?.let { configuration.addJvmClasspathRoot(it) }
 
         when (jdkKind) {
-            TestJdkKind.MOCK_JDK, TestJdkKind.MODIFIED_MOCK_JDK, TestJdkKind.ANDROID_API -> {
+            TestJdkKind.MOCK_JDK, TestJdkKind.MODIFIED_MOCK_JDK -> {
                 configuration.put(JVMConfigurationKeys.NO_JDK, true)
             }
 

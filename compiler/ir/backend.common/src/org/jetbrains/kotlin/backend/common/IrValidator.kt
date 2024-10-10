@@ -24,12 +24,14 @@ import org.jetbrains.kotlin.ir.visitors.acceptVoid
 
 typealias ReportIrValidationError = (IrFile?, IrElement, String, List<IrElement>) -> Unit
 
-internal class IrValidatorConfig(
-    val checkTypes: Boolean = true,
+data class IrValidatorConfig(
+    val checkTreeConsistency: Boolean = true,
+    val checkTypes: Boolean = false,
     val checkProperties: Boolean = false,
     val checkValueScopes: Boolean = false,
     val checkTypeParameterScopes: Boolean = false,
     val checkCrossFileFieldUsage: Boolean = false,
+    val checkAllKotlinFieldsArePrivate: Boolean = false,
     val checkVisibilities: Boolean = false,
     val checkInlineFunctionUseSites: InlineFunctionUseSiteChecker? = null,
 )
@@ -69,8 +71,8 @@ private class IrValidator(
         if (config.checkTypeParameterScopes) {
             IrTypeParameterScopeValidator(this::error, parentChain).check(declaration)
         }
-        if (config.checkCrossFileFieldUsage) {
-            declaration.acceptVoid(IrFieldCrossFileAccessValidator(declaration, reportError))
+        if (config.checkCrossFileFieldUsage || config.checkAllKotlinFieldsArePrivate) {
+            declaration.acceptVoid(IrFieldValidator(declaration, config, reportError))
         }
         if (config.checkVisibilities) {
             declaration.acceptVoid(IrVisibilityChecker(declaration.module, declaration, reportError))
@@ -161,7 +163,9 @@ private fun performBasicIrValidation(
         // Performing other checks may cause e.g. infinite recursion.
         return
     }
-    element.checkDeclarationParents(reportError)
+    if (validatorConfig.checkTreeConsistency) {
+        element.checkDeclarationParents(reportError)
+    }
 }
 
 /**
@@ -169,6 +173,11 @@ private fun performBasicIrValidation(
  * (if the verification mode passed to [validateIr] is [IrVerificationMode.ERROR])
  */
 sealed interface IrValidationContext {
+
+    /**
+     * A string that each validation error will begin with.
+     */
+    var customMessagePrefix: String?
 
     /**
      * Logs the validation error into the underlying [MessageCollector].
@@ -200,27 +209,9 @@ sealed interface IrValidationContext {
         fragment: IrElement,
         irBuiltIns: IrBuiltIns,
         phaseName: String,
-        checkProperties: Boolean = false,
-        checkTypes: Boolean = false,
-        checkVisibilities: Boolean = false,
-        checkCrossFileFieldUsage: Boolean = false,
-        checkValueScopes: Boolean = false,
-        checkTypeParameterScopes: Boolean = false,
-        checkInlineFunctionUseSites: InlineFunctionUseSiteChecker? = null,
+        config: IrValidatorConfig,
     ) {
-        performBasicIrValidation(
-            fragment,
-            irBuiltIns,
-            IrValidatorConfig(
-                checkTypes,
-                checkProperties,
-                checkValueScopes,
-                checkTypeParameterScopes,
-                checkCrossFileFieldUsage,
-                checkVisibilities,
-                checkInlineFunctionUseSites,
-            ),
-        ) { file, element, message, parentChain ->
+        performBasicIrValidation(fragment, irBuiltIns, config) { file, element, message, parentChain ->
             reportIrValidationError(file, element, message, phaseName, parentChain)
         }
     }
@@ -230,6 +221,8 @@ private class IrValidationContextImpl(
     private val messageCollector: MessageCollector,
     private val mode: IrVerificationMode
 ) : IrValidationContext {
+
+    override var customMessagePrefix: String? = null
 
     private var hasValidationErrors: Boolean = false
 
@@ -250,8 +243,14 @@ private class IrValidationContextImpl(
         messageCollector.report(
             severity,
             buildString {
-                append("[IR VALIDATION] ")
-                append(phaseMessage)
+                val customMessagePrefix = customMessagePrefix
+                if (customMessagePrefix == null) {
+                    append("[IR VALIDATION] ")
+                    append(phaseMessage)
+                } else {
+                    append(customMessagePrefix)
+                    append(" ")
+                }
                 appendLine(message)
                 append(element.render())
                 for ((i, parent) in parentChain.asReversed().withIndex()) {

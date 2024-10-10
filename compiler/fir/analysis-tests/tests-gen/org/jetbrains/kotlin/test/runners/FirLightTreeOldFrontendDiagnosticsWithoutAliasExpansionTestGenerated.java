@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.test.runners;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
+import org.jetbrains.kotlin.test.utils.TransformersFunctions;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,12 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
     @TestMetadata("GenericArgumentConsistency.kt")
     public void testGenericArgumentConsistency() {
       runTest("compiler/testData/diagnostics/tests/GenericArgumentConsistency.kt");
+    }
+
+    @Test
+    @TestMetadata("KotlinActualAnnotationHasNoEffectInKotlin.kt")
+    public void testKotlinActualAnnotationHasNoEffectInKotlin() {
+      runTest("compiler/testData/diagnostics/tests/KotlinActualAnnotationHasNoEffectInKotlin.kt");
     }
 
     @Test
@@ -620,6 +627,29 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
     }
 
     @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/imports")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Imports {
+      @Test
+      @TestMetadata("RootPackage.kt")
+      public void testRootPackage() {
+        runTest("compiler/testData/diagnostics/tests/imports/RootPackage.kt");
+      }
+
+      @Test
+      @TestMetadata("RootPackageImportsA.kt")
+      public void testRootPackageImportsA() {
+        runTest("compiler/testData/diagnostics/tests/imports/RootPackageImportsA.kt");
+      }
+
+      @Test
+      @TestMetadata("RootPackageNoImports.kt")
+      public void testRootPackageNoImports() {
+        runTest("compiler/testData/diagnostics/tests/imports/RootPackageNoImports.kt");
+      }
+    }
+
+    @Nested
     @TestMetadata("compiler/testData/diagnostics/tests/incompleteCode")
     @TestDataPath("$PROJECT_ROOT")
     public class IncompleteCode {
@@ -826,6 +856,11 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
     @TestMetadata("compiler/testData/diagnostics/tests/lateinit")
     @TestDataPath("$PROJECT_ROOT")
     public class Lateinit {
+      @Test
+      @TestMetadata("modifierApplicability_lv12.kt")
+      public void testModifierApplicability_lv12() {
+        runTest("compiler/testData/diagnostics/tests/lateinit/modifierApplicability_lv12.kt");
+      }
     }
 
     @Nested
@@ -1004,6 +1039,17 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
       @TestMetadata("TypeAliasVsProperty.kt")
       public void testTypeAliasVsProperty() {
         runTest("compiler/testData/diagnostics/tests/redeclarations/TypeAliasVsProperty.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/testData/diagnostics/tests/redeclarations/shadowedExtension")
+      @TestDataPath("$PROJECT_ROOT")
+      public class ShadowedExtension {
+        @Test
+        @TestMetadata("extensionFunShadowedByMemberFun.kt")
+        public void testExtensionFunShadowedByMemberFun() {
+          runTest("compiler/testData/diagnostics/tests/redeclarations/shadowedExtension/extensionFunShadowedByMemberFun.kt");
+        }
       }
     }
 
@@ -1389,6 +1435,12 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
       @TestMetadata("illegalTypeInTypeAliasExpansion.kt")
       public void testIllegalTypeInTypeAliasExpansion() {
         runTest("compiler/testData/diagnostics/tests/typealias/illegalTypeInTypeAliasExpansion.kt");
+      }
+
+      @Test
+      @TestMetadata("illegalTypeInTypeAliasExpansionDisabled.kt")
+      public void testIllegalTypeInTypeAliasExpansionDisabled() {
+        runTest("compiler/testData/diagnostics/tests/typealias/illegalTypeInTypeAliasExpansionDisabled.kt");
       }
 
       @Test
@@ -1974,6 +2026,17 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
     }
 
     @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/valueClasses")
+    @TestDataPath("$PROJECT_ROOT")
+    public class ValueClasses {
+      @Test
+      @TestMetadata("annotations.kt")
+      public void testAnnotations() {
+        runTest("compiler/testData/diagnostics/tests/valueClasses/annotations.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithUniversal());
+      }
+    }
+
+    @Nested
     @TestMetadata("compiler/testData/diagnostics/tests/varargs")
     @TestDataPath("$PROJECT_ROOT")
     public class Varargs {
@@ -2022,6 +2085,12 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
     @TestMetadata("compiler/testData/diagnostics/tests/when")
     @TestDataPath("$PROJECT_ROOT")
     public class When {
+      @Test
+      @TestMetadata("nullableSubjectWithIsCheck.kt")
+      public void testNullableSubjectWithIsCheck() {
+        runTest("compiler/testData/diagnostics/tests/when/nullableSubjectWithIsCheck.kt");
+      }
+
       @Nested
       @TestMetadata("compiler/testData/diagnostics/tests/when/guard")
       @TestDataPath("$PROJECT_ROOT")
@@ -2131,12 +2200,6 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
         @TestMetadata("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors")
         @TestDataPath("$PROJECT_ROOT")
         public class Errors {
-          @Test
-          @TestMetadata("typeReferences.1.3.kt")
-          public void testTypeReferences_1_3() {
-            runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/typeReferences.1.3.kt");
-          }
-
           @Test
           @TestMetadata("typeReferences.1.4.kt")
           public void testTypeReferences_1_4() {
@@ -2352,33 +2415,15 @@ public class FirLightTreeOldFrontendDiagnosticsWithoutAliasExpansionTestGenerate
     @TestDataPath("$PROJECT_ROOT")
     public class TrailingComma {
       @Test
-      @TestMetadata("typeArgumentsWithDisabledFeature.kt")
-      public void testTypeArgumentsWithDisabledFeature() {
-        runTest("compiler/testData/diagnostics/testsWithStdLib/trailingComma/typeArgumentsWithDisabledFeature.kt");
-      }
-
-      @Test
       @TestMetadata("typeArgumentsWithEnabledFeature.kt")
       public void testTypeArgumentsWithEnabledFeature() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/trailingComma/typeArgumentsWithEnabledFeature.kt");
       }
 
       @Test
-      @TestMetadata("typeParametersWithDisabledFeature.kt")
-      public void testTypeParametersWithDisabledFeature() {
-        runTest("compiler/testData/diagnostics/testsWithStdLib/trailingComma/typeParametersWithDisabledFeature.kt");
-      }
-
-      @Test
       @TestMetadata("typeParametersWithEnabledFeature.kt")
       public void testTypeParametersWithEnabledFeature() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/trailingComma/typeParametersWithEnabledFeature.kt");
-      }
-
-      @Test
-      @TestMetadata("valueArgumentsWithDisabledFeature.kt")
-      public void testValueArgumentsWithDisabledFeature() {
-        runTest("compiler/testData/diagnostics/testsWithStdLib/trailingComma/valueArgumentsWithDisabledFeature.kt");
       }
 
       @Test

@@ -10,10 +10,21 @@ import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.util.file
+import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.isEffectivelyExternal
+import org.jetbrains.kotlin.name.FqName
 
-// Move static member declarations from classes to top level
+/**
+ * If this is a static declaration that was extracted to the top level by [StaticMembersLowering],
+ * contains the fully qualified name of this declaration before extraction.
+ */
+var IrClass.originalFqName: FqName? by irAttribute(followAttributeOwner = false)
+
+/**
+ * Moves static member declarations from classes to the top level.
+ */
 class StaticMembersLowering(val context: JsCommonBackendContext) : DeclarationTransformer {
     // There is no need to extract external fun, except for one special case of outlined function
     private fun IrDeclaration.isNotExternalOrIsSpecialOutlinedFun(): Boolean {
@@ -47,6 +58,11 @@ class StaticMembersLowering(val context: JsCommonBackendContext) : DeclarationTr
                 } else {
                     irClass.file.declarations += declaration
                 }
+
+                if (declaration is IrClass) {
+                    declaration.originalFqName = declaration.fqNameWhenAvailable
+                }
+
                 declaration.parent = irClass.file
                 return listOf()
             }

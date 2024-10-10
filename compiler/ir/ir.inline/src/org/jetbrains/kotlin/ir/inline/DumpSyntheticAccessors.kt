@@ -22,6 +22,9 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.mapToSetOrEmpty
 import java.io.File
 
+/**
+ * Dumps synthetic accessors and their call sites (used only for testing and debugging).
+ */
 class DumpSyntheticAccessors(context: CommonBackendContext) : ModuleLoweringPass {
     private val dumpDirectory: File? = getDumpDirectoryOrNull(context.configuration)
 
@@ -87,9 +90,12 @@ class DumpSyntheticAccessors(context: CommonBackendContext) : ModuleLoweringPass
                         val accessorTargetSymbol: IrValueSymbol = expression.symbol
                         accessorTargetSymbol
                     }
+                    is IrConstructorCall -> {
+                        val accessorTargetSymbol: IrConstructorSymbol = accessor.getSingleExpression<IrConstructorCall>().symbol
+                        accessorTargetSymbol
+                    }
                     else -> error("Unexpected type of expression in accessor ${accessor.id()}, ${expression.render()}")
                 }
-                else -> error("Unexpected accessor type: ${accessor.id()}")
             }
         }
 

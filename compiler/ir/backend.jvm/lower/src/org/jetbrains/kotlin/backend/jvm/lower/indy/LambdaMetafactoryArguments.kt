@@ -93,7 +93,8 @@ internal class LambdaMetafactoryArgumentsBuilder(
     fun getLambdaMetafactoryArguments(
         reference: IrFunctionReference,
         samType: IrType,
-        plainLambda: Boolean
+        plainLambda: Boolean,
+        forceSerializability: Boolean
     ): MetafactoryArgumentsResult {
         val samClass = samType.getClass()
             ?: throw AssertionError("SAM type is not a class: ${samType.render()}")
@@ -110,7 +111,7 @@ internal class LambdaMetafactoryArgumentsBuilder(
             semanticsHazard = true
         }
 
-        if (samClass.isInheritedFromSerializable()) {
+        if (forceSerializability || samClass.isInheritedFromSerializable()) {
             shouldBeSerializable = true
         }
 
@@ -462,22 +463,21 @@ internal class LambdaMetafactoryArgumentsBuilder(
 
         val newValueParameters = ArrayList<IrValueParameter>()
         val oldToNew = HashMap<IrValueParameter, IrValueParameter>()
-        var newParameterIndex = 0
 
         lambda.valueParameters.take(lambda.contextReceiverParametersCount).mapTo(newValueParameters) { oldParameter ->
-            oldParameter.copy(lambda, newParameterIndex++).also {
+            oldParameter.copy(lambda).also {
                 oldToNew[oldParameter] = it
             }
         }
 
         newValueParameters.add(
-            oldExtensionReceiver.copy(lambda, newParameterIndex++, oldExtensionReceiver.name).also {
+            oldExtensionReceiver.copy(lambda, oldExtensionReceiver.name).also {
                 oldToNew[oldExtensionReceiver] = it
             }
         )
 
         lambda.valueParameters.drop(lambda.contextReceiverParametersCount).mapTo(newValueParameters) { oldParameter ->
-            oldParameter.copy(lambda, newParameterIndex++).also {
+            oldParameter.copy(lambda).also {
                 oldToNew[oldParameter] = it
             }
         }
@@ -491,17 +491,15 @@ internal class LambdaMetafactoryArgumentsBuilder(
             reference.startOffset, reference.endOffset, reference.type,
             lambda.symbol,
             typeArgumentsCount = 0,
-            valueArgumentsCount = newValueParameters.size,
             reflectionTarget = null,
             origin = reference.origin
         )
     }
 
 
-    private fun IrValueParameter.copy(parent: IrSimpleFunction, newIndex: Int, newName: Name = this.name): IrValueParameter =
+    private fun IrValueParameter.copy(parent: IrSimpleFunction, newName: Name = this.name): IrValueParameter =
         buildValueParameter(parent) {
             updateFrom(this@copy)
-            index = newIndex
             name = newName
         }
 

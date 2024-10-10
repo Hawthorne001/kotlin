@@ -68,6 +68,12 @@ public class FirLightTreeJsOldFrontendDiagnosticsTestGenerated extends AbstractF
   }
 
   @Test
+  @TestMetadata("isInitializedInInline.kt")
+  public void testIsInitializedInInline() {
+    runTest("compiler/testData/diagnostics/testsWithJsStdLib/isInitializedInInline.kt");
+  }
+
+  @Test
   @TestMetadata("jsExternalArgument.kt")
   public void testJsExternalArgument() {
     runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsExternalArgument.kt");
@@ -146,12 +152,6 @@ public class FirLightTreeJsOldFrontendDiagnosticsTestGenerated extends AbstractF
     @TestMetadata("arrays_after.kt")
     public void testArrays_after() {
       runTest("compiler/testData/diagnostics/testsWithJsStdLib/classLiteral/arrays_after.kt");
-    }
-
-    @Test
-    @TestMetadata("arrays_before.kt")
-    public void testArrays_before() {
-      runTest("compiler/testData/diagnostics/testsWithJsStdLib/classLiteral/arrays_before.kt");
     }
   }
 

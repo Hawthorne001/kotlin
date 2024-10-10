@@ -730,6 +730,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
       }
 
       @Test
+      @TestMetadata("specialAnnotationsMetadata.kt")
+      public void testSpecialAnnotationsMetadata() {
+        runTest("compiler/testData/ir/irText/declarations/annotations/specialAnnotationsMetadata.kt");
+      }
+
+      @Test
       @TestMetadata("spreadOperatorInAnnotationArguments.kt")
       public void testSpreadOperatorInAnnotationArguments() {
         runTest("compiler/testData/ir/irText/declarations/annotations/spreadOperatorInAnnotationArguments.kt");
@@ -2393,6 +2399,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
     }
 
     @Test
+    @TestMetadata("capturedTypeInFakeOverride.kt")
+    public void testCapturedTypeInFakeOverride() {
+      runTest("compiler/testData/ir/irText/fakeOverrides/capturedTypeInFakeOverride.kt");
+    }
+
+    @Test
     @TestMetadata("setterVisibliity.kt")
     public void testSetterVisibliity() {
       runTest("compiler/testData/ir/irText/fakeOverrides/setterVisibliity.kt");
@@ -3400,12 +3412,6 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
     @TestMetadata("intersectionType3.kt")
     public void testIntersectionType3() {
       runTest("compiler/testData/ir/irText/types/intersectionType3.kt");
-    }
-
-    @Test
-    @TestMetadata("intersectionTypeInSamType.kt")
-    public void testIntersectionTypeInSamType() {
-      runTest("compiler/testData/ir/irText/types/intersectionTypeInSamType.kt");
     }
 
     @Test

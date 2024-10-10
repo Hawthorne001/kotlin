@@ -26,9 +26,7 @@
 -dontwarn com.sun.jna.WString
 -dontwarn dk.brics.automaton.*
 -dontwarn java.lang.invoke.MethodHandle
--dontwarn javaslang.*
--dontwarn javaslang.match.annotation.Patterns
--dontwarn javaslang.match.annotation.Unapply
+-dontwarn io.vavr.*
 -dontwarn javax.crypto.**
 -dontwarn kotlinx.collections.immutable.*
 -dontwarn kotlinx.collections.immutable.**
@@ -191,7 +189,6 @@
 -keep class gnu.trove.TIntHashSet { *; }
 -keep class gnu.trove.TIntIterator { *; }
 -keep class org.iq80.snappy.SlowMemory { *; }
--keep class javaslang.match.PatternsProcessor { *; }
 
 -keepclassmembers enum * {
     public static **[] values();
@@ -302,6 +299,7 @@
 -keep class org.jline.reader.History { *; }
 -keep class org.jline.reader.EndOfFileException { *; }
 -keep class org.jline.reader.UserInterruptException { *; }
+-keep class org.jline.terminal.TerminalBuilder { *; }
 -keep class org.jline.terminal.impl.jna.JnaSupportImpl  { *; }
 -keep class org.jline.terminal.impl.jansi.JansiSupportImpl  { *; }
 
@@ -325,8 +323,11 @@
     public ** plusAll(java.util.Map);
 }
 
-# This class is needed for test framework
+# These classes is needed for test framework
 -keep class com.intellij.openapi.util.text.StringUtil { *; }
+-keepclassmembers class com.intellij.openapi.util.io.NioFiles {
+    public static void deleteRecursively(java.nio.file.Path);
+}
 
 
 # This is used from standalone analysis API, which is NOT a part of the compiler but is bundled into kotlin-annotation-processing.

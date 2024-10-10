@@ -38,8 +38,8 @@ val SirVariable.accessors: List<SirAccessor>
 
 val SirParameter.name: String? get() = parameterName ?: argumentName
 
-val SirType.isVoid: Boolean get() = this is SirNominalType && this.type == SirSwiftModule.void
-val SirType.isNever: Boolean get() = this is SirNominalType && this.type == SirSwiftModule.never
+val SirType.isVoid: Boolean get() = this is SirNominalType && this.typeDeclaration == SirSwiftModule.void
+val SirType.isNever: Boolean get() = this is SirNominalType && this.typeDeclaration == SirSwiftModule.never
 
 fun <T : SirDeclaration> SirMutableDeclarationContainer.addChild(producer: () -> T): T {
     val child = producer()
@@ -51,7 +51,11 @@ fun <T : SirDeclaration> SirMutableDeclarationContainer.addChild(producer: () ->
 val SirType.swiftName
     get(): String = when (this) {
         is SirExistentialType -> "Any"
-        is SirNominalType -> type.swiftFqName
+        is SirNominalType -> listOfNotNull(
+            parent?.swiftName?.let { "$it." },
+            typeDeclaration.swiftFqName,
+            typeArguments.takeIf { it.isNotEmpty() }?.let { it.joinToString(prefix = "<", postfix = ">", separator = ",") { it.swiftName } }
+        ).joinToString("")
         is SirErrorType -> "ERROR_TYPE"
         is SirUnsupportedType -> "Swift.Never"
     }

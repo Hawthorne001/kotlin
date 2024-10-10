@@ -1648,6 +1648,30 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
     }
 
     @Test
+    @TestMetadata("buildList_implicit.kt")
+    public void testBuildList_implicit() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_implicit.kt");
+    }
+
+    @Test
+    @TestMetadata("buildList_let.kt")
+    public void testBuildList_let() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_let.kt");
+    }
+
+    @Test
+    @TestMetadata("buildList_otherList.kt")
+    public void testBuildList_otherList() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_otherList.kt");
+    }
+
+    @Test
+    @TestMetadata("buildList_this.kt")
+    public void testBuildList_this() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_this.kt");
+    }
+
+    @Test
     @TestMetadata("constructor.kt")
     public void testConstructor() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/constructor.kt");
@@ -2431,6 +2455,28 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries")
+  @TestDataPath("$PROJECT_ROOT")
+  public class GloballyDuplicateLibraries {
+    @Test
+    public void testAllFilesPresentInGloballyDuplicateLibraries() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("functionCallsInIndependentModulesWithGloballyDuplicateJavaLibrary.kt")
+    public void testFunctionCallsInIndependentModulesWithGloballyDuplicateJavaLibrary() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries/functionCallsInIndependentModulesWithGloballyDuplicateJavaLibrary.kt");
+    }
+
+    @Test
+    @TestMetadata("functionCallsInIndependentModulesWithGloballyDuplicateLibrary.kt")
+    public void testFunctionCallsInIndependentModulesWithGloballyDuplicateLibrary() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries/functionCallsInIndependentModulesWithGloballyDuplicateLibrary.kt");
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/inImport")
   @TestDataPath("$PROJECT_ROOT")
   public class InImport {
@@ -2856,6 +2902,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
     }
 
     @Test
+    @TestMetadata("defaultJavaConstructorWithTypeParameter.kt")
+    public void testDefaultJavaConstructorWithTypeParameter() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/defaultJavaConstructorWithTypeParameter.kt");
+    }
+
+    @Test
     @TestMetadata("JavaAnnotationParameter.kt")
     public void testJavaAnnotationParameter() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/JavaAnnotationParameter.kt");
@@ -2889,6 +2941,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
     @TestMetadata("JavaReference.kt")
     public void testJavaReference() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/JavaReference.kt");
+    }
+
+    @Test
+    @TestMetadata("JavaSameSourceLibrary.kt")
+    public void testJavaSameSourceLibrary() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/JavaSameSourceLibrary.kt");
     }
 
     @Test
@@ -3057,6 +3115,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
       }
 
       @Test
+      @TestMetadata("KT-69047.kt")
+      public void testKT_69047() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/extensions/KT-69047.kt");
+      }
+
+      @Test
       @TestMetadata("nonExtensions.kt")
       public void testNonExtensions() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/extensions/nonExtensions.kt");
@@ -3149,6 +3213,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
       }
 
       @Test
+      @TestMetadata("KT-64190.kt")
+      public void testKT_64190() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/imports/KT-64190.kt");
+      }
+
+      @Test
       @TestMetadata("SameNameClassesFromStarImports.kt")
       public void testSameNameClassesFromStarImports() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/imports/SameNameClassesFromStarImports.kt");
@@ -3180,6 +3250,18 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
       @TestMetadata("FunctionQualifiedWithKotlinSubclass.kt")
       public void testFunctionQualifiedWithKotlinSubclass() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/javaDeclarations/FunctionQualifiedWithKotlinSubclass.kt");
+      }
+
+      @Test
+      @TestMetadata("KT-69128.kt")
+      public void testKT_69128() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/javaDeclarations/KT-69128.kt");
+      }
+
+      @Test
+      @TestMetadata("KT-69736.kt")
+      public void testKT_69736() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/javaDeclarations/KT-69736.kt");
       }
 
       @Test
@@ -5392,6 +5474,18 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
     }
 
     @Test
+    @TestMetadata("MissingTypeArgumentBeforeDot.kt")
+    public void testMissingTypeArgumentBeforeDot() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/MissingTypeArgumentBeforeDot.kt");
+    }
+
+    @Test
+    @TestMetadata("MissingTypeArgumentBeforeDotQualified.kt")
+    public void testMissingTypeArgumentBeforeDotQualified() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/MissingTypeArgumentBeforeDotQualified.kt");
+    }
+
+    @Test
     @TestMetadata("NoSelectorInDotQualifiedCall.kt")
     public void testNoSelectorInDotQualifiedCall() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/NoSelectorInDotQualifiedCall.kt");
@@ -5680,6 +5774,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCandidatesTestGenerated exte
       @TestMetadata("ClassNameSecondQualifierBeforeOneUnsresolvedClassWithTwoResolvedWithDot.kt")
       public void testClassNameSecondQualifierBeforeOneUnsresolvedClassWithTwoResolvedWithDot() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameSecondQualifierBeforeOneUnsresolvedClassWithTwoResolvedWithDot.kt");
+      }
+
+      @Test
+      @TestMetadata("GenericClassNameBeforeOneUnresolvedClass.kt")
+      public void testGenericClassNameBeforeOneUnresolvedClass() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/partiallyUnresolvedTypeQualifier/GenericClassNameBeforeOneUnresolvedClass.kt");
       }
     }
   }

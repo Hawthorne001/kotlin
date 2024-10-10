@@ -13,23 +13,23 @@ import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.DirectedGraphCondensationBuilder
 import org.jetbrains.kotlin.backend.konan.DirectedGraphMultiNode
+import org.jetbrains.kotlin.backend.konan.ir.annotations.Escapes
+import org.jetbrains.kotlin.backend.konan.ir.annotations.PointsTo
+import org.jetbrains.kotlin.backend.konan.ir.annotations.PointsToKind
+import org.jetbrains.kotlin.backend.konan.ir.isBuiltInOperator
 import org.jetbrains.kotlin.backend.konan.llvm.Lifetime
 import org.jetbrains.kotlin.backend.konan.logMultiple
+import org.jetbrains.kotlin.backend.konan.lower.originalConstructor
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrConstructor
-import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.util.constructedClass
 import org.jetbrains.kotlin.ir.util.getAllSuperclasses
-
-private val DataFlowIR.Node.isAlloc
-    get() = this is DataFlowIR.Node.NewObject || this is DataFlowIR.Node.AllocInstance
 
 private val DataFlowIR.Node.ir
     get() = when (this) {
         is DataFlowIR.Node.Call -> irCallSite
-        is DataFlowIR.Node.AllocInstance -> irCallSite
+        is DataFlowIR.Node.Alloc -> irCallSite
         is DataFlowIR.Node.ArrayRead -> irCallSite
         is DataFlowIR.Node.FieldRead -> ir
         else -> null
@@ -37,14 +37,8 @@ private val DataFlowIR.Node.ir
 
 private val CallGraphNode.CallSite.arguments: List<DataFlowIR.Node>
     get() {
-        return if (call is DataFlowIR.Node.NewObject) {
-            (0..call.arguments.size).map {
-                if (it == 0) node else call.arguments[it - 1].node
-            }
-        } else {
-            (0..call.arguments.size).map {
-                if (it < call.arguments.size) call.arguments[it].node else node
-            }
+        return (0..call.arguments.size).map {
+            if (it < call.arguments.size) call.arguments[it].node else node
         }
     }
 
@@ -262,22 +256,12 @@ internal object EscapeAnalysis {
             override fun toString() = "$from -> $to"
 
             companion object {
-                fun pointsTo(param1: Int, param2: Int, totalParams: Int, kind: Int): Edge {
-                    /*
-                     * Values extracted from @PointsTo annotation.
-                     *  kind            edge
-                     *   1      p1            -> p2
-                     *   2      p1            -> p2.intestines
-                     *   3      p1.intestines -> p2
-                     *   4      p1.intestines -> p2.intestines
-                     */
-                    if (kind <= 0 || kind > 4)
-                        error("Invalid pointsTo kind: $kind")
-                    val from = if (kind < 3)
+                fun pointsTo(param1: Int, param2: Int, totalParams: Int, kind: PointsToKind): Edge {
+                    val from = if (kind.sourceIsDirect)
                         Node.parameter(param1, totalParams)
                     else
                         Node(NodeKind.parameter(param1, totalParams), Array(1) { intestinesField })
-                    val to = if (kind % 2 == 1)
+                    val to = if (kind.destinationIsDirect)
                         Node.parameter(param2, totalParams)
                     else
                         Node(NodeKind.parameter(param2, totalParams), Array(1) { intestinesField })
@@ -323,19 +307,24 @@ internal object EscapeAnalysis {
         }
 
         companion object {
-            fun fromBits(escapesMask: Int, pointsToMasks: List<Int>): FunctionEscapeAnalysisResult {
-                val paramCount = pointsToMasks.size
+            fun fromAnnotations(escapesAnnotation: Escapes?, pointsToAnnotation: PointsTo?, numberOfParameters: Int): FunctionEscapeAnalysisResult {
+                escapesAnnotation?.run {
+                    assertIsValidFor(numberOfParameters + 1)
+                }
+                pointsToAnnotation?.run {
+                    assertIsValidFor(numberOfParameters + 1)
+                }
                 val edges = mutableListOf<CompressedPointsToGraph.Edge>()
                 val escapes = mutableListOf<CompressedPointsToGraph.Node>()
-                for (param1 in pointsToMasks.indices) {
-                    if (escapesMask and (1 shl param1) != 0)
-                        escapes.add(CompressedPointsToGraph.Node.parameter(param1, paramCount))
-                    val curPointsToMask = pointsToMasks[param1]
-                    for (param2 in pointsToMasks.indices) {
-                        // Read a nibble at position [param2].
-                        val pointsTo = (curPointsToMask shr (4 * param2)) and 15
-                        if (pointsTo != 0)
-                            edges.add(CompressedPointsToGraph.Edge.pointsTo(param1, param2, paramCount, pointsTo))
+                for (paramFrom in 0..numberOfParameters) {
+                    if (escapesAnnotation?.escapesAt(paramFrom) == true)
+                        escapes.add(CompressedPointsToGraph.Node.parameter(paramFrom, numberOfParameters + 1))
+                    pointsToAnnotation?.run {
+                        for (paramTo in 0..numberOfParameters) {
+                            kind(paramFrom, paramTo)?.let {
+                                edges.add(CompressedPointsToGraph.Edge.pointsTo(paramFrom, paramTo, numberOfParameters + 1, it))
+                            }
+                        }
                     }
                 }
                 return FunctionEscapeAnalysisResult(
@@ -529,14 +518,12 @@ internal object EscapeAnalysis {
 
                         // Filter out some irrelevant cases (like globals and exceptions).
                         val isFilteredOut = functionSymbol.isStaticFieldInitializer ||
-                                (functionSymbol.irFunction as? IrConstructor)
-                                        ?.constructedClass?.kind?.let { kind ->
-                                            kind == ClassKind.ENUM_CLASS || kind == ClassKind.OBJECT
-                                        } == true ||
-                                (it is IrConstructorCall &&
-                                        throwable in it.symbol.owner.constructedClass.getAllSuperclasses())
+                                functionSymbol.irFunction?.originalConstructor?.constructedClass?.kind?.let { kind ->
+                                    kind == ClassKind.ENUM_CLASS || kind == ClassKind.OBJECT
+                                } == true ||
+                                (node as? DataFlowIR.Node.Alloc)?.type?.irClass?.getAllSuperclasses()?.contains(throwable) == true
 
-                        if (node.isAlloc) {
+                        if (node is DataFlowIR.Node.Alloc) {
                             if (lifetime == Lifetime.GLOBAL) {
                                 ++stats.totalGlobalAllocsCount
                                 if (!isFilteredOut)
@@ -699,10 +686,17 @@ internal object EscapeAnalysis {
                         && !callee.name.startsWith("kfun:kotlin.native.concurrent")
                         && !callee.name.startsWith("kfun:kotlin.concurrent")) {
                     context.log { "A function from K/N runtime - can use annotations" }
-                    FunctionEscapeAnalysisResult.fromBits(
-                            callee.escapes ?: 0,
-                            (0..callee.parameters.size).map { callee.pointsTo?.elementAtOrNull(it) ?: 0 }
-                    )
+                    if (callee.irFunction?.isBuiltInOperator == false) { // If callee is a function, but not a builtin operator
+                        if (callee.escapes == null && callee.pointsTo == null) { // and it had no EA annotations
+                            require(callee.parameters.all { it.type.irClass == null }) { // all of its parameters must be primitive types
+                                "Function ${callee.name} has reference parameters and is missing EA annotations. Must have been handled by SpecialBackendChecksTraversal"
+                            }
+                            require(callee.returnsUnit || callee.returnsNothing || callee.returnParameter.type.irClass == null) { // as well as the return value
+                                "Function ${callee.name} has reference return value and is missing EA annotations. Must have been handled by SpecialBackendChecksTraversal"
+                            }
+                        }
+                    }
+                    FunctionEscapeAnalysisResult.fromAnnotations(callee.escapes, callee.pointsTo, callee.parameters.size)
                 } else {
                     context.log { "An unknown function - assume pessimistic result" }
                     FunctionEscapeAnalysisResult.pessimistic(callee.parameters.size)
@@ -913,7 +907,7 @@ internal object EscapeAnalysis {
                                     variable.addAssignmentEdge(nodes[value.node]!!)
                             }
                         }
-                        is DataFlowIR.Node.AllocInstance,
+                        is DataFlowIR.Node.Alloc,
                         is DataFlowIR.Node.Call,
                         is DataFlowIR.Node.Const,
                         is DataFlowIR.Node.FunctionReference,
@@ -935,9 +929,9 @@ internal object EscapeAnalysis {
                     val parameters = function.body.rootScope.nodes
                             .filterIsInstance<DataFlowIR.Node.Parameter>()
                     for (parameter in parameters)
-                        if (escapes and (1 shl parameter.index) != 0)
+                        if (escapes.escapesAt(parameter.index))
                             escapeOrigins += nodes[parameter]!!
-                    if (escapes and (1 shl parameters.size) != 0)
+                    if (escapes.escapesAt(parameters.size))
                         escapeOrigins += returnsNode
                 }
             }
@@ -1013,11 +1007,7 @@ internal object EscapeAnalysis {
 
                 fun mapNode(compressedNode: CompressedPointsToGraph.Node): Pair<DataFlowIR.Node?, PointsToGraphNode?> {
                     val (arg, rootNode) = when (val kind = compressedNode.kind) {
-                        CompressedPointsToGraph.NodeKind.Return ->
-                            if (call is DataFlowIR.Node.NewObject) // TODO: This better be an assertion.
-                                DataFlowIR.Node.Null to null
-                            else
-                                arguments.last() to nodes[arguments.last()]
+                        CompressedPointsToGraph.NodeKind.Return -> arguments.last() to nodes[arguments.last()]
                         is CompressedPointsToGraph.NodeKind.Param -> arguments[kind.index] to nodes[arguments[kind.index]]
                         is CompressedPointsToGraph.NodeKind.Drain -> null to calleeDrains[kind.index]
                     }
@@ -1616,12 +1606,12 @@ internal object EscapeAnalysis {
                         lifetime = Lifetime.GLOBAL
                     }
 
-                    if (lifetime == Lifetime.STACK && node is DataFlowIR.Node.NewObject) {
-                        val constructedType = node.constructedType
+                    if (lifetime == Lifetime.STACK && node is DataFlowIR.Node.AllocArray) {
+                        val constructedType = node.type
                         constructedType.irClass?.let { irClass ->
                             val itemSize = arrayItemSizeOf(irClass)
                             if (itemSize != null) {
-                                val sizeArgument = node.arguments.first().node
+                                val sizeArgument = node.size.node
                                 val arrayLength = arrayLengthOf(sizeArgument)?.takeIf { it >= 0 }
                                 val arraySize = arraySize(itemSize, arrayLength ?: Int.MAX_VALUE)
                                 if (arraySize <= allowedToAlloc) {
@@ -1636,7 +1626,7 @@ internal object EscapeAnalysis {
                     }
 
                     if (lifetime != computedLifetime) {
-                        if (propagateExiledToHeapObjects && node.isAlloc) {
+                        if (propagateExiledToHeapObjects && node is DataFlowIR.Node.Alloc) {
                             context.log { "Forcing node ${nodeToString(node)} to escape" }
                             escapeOrigins += ptgNode
                             propagateEscapeOrigin(ptgNode)

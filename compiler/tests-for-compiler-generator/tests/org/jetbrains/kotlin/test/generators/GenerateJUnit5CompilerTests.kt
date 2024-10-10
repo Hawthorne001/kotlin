@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 
 fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
     val excludedCustomTestdataPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN
+    val k1BoxTestDir = listOf("multiplatform/k1")
     val k2BoxTestDir = listOf("multiplatform/k2")
     val excludedScriptDirs = listOf("script")
     // We exclude the 'inlineScopes' directory from the IR inliner tests. The reason is that
@@ -78,10 +79,6 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
                 model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedCustomTestdataPattern)
             }
 
-            testClass<AbstractBlackBoxCodegenTest> {
-                model("codegen/box", excludeDirs = k2BoxTestDir)
-            }
-
             testClass<AbstractIrBlackBoxCodegenTest> {
                 model("codegen/box", excludeDirs = k2BoxTestDir)
             }
@@ -89,7 +86,7 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
 
             // We split JVM ABI tests into two parts, to avoid creation of a huge file, unable to analyze by IntelliJ with default settings
             testClass<AbstractJvmAbiConsistencyTest>("JvmAbiConsistencyTestBoxGenerated") {
-                model("codegen/box", excludeDirs = k2BoxTestDir)
+                model("codegen/box", excludeDirs = listOf("multiplatform"))
             }
 
             testClass<AbstractJvmAbiConsistencyTest>("JvmAbiConsistencyTestRestGenerated") {
@@ -99,7 +96,6 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
                 model("codegen/bytecodeListing")
                 model("codegen/composeLike")
                 model("codegen/composeLikeBytecodeText")
-                model("codegen/defaultArguments")
                 model("codegen/script", pattern = "^(.*)\\.kts?$", excludedPattern = excludedCustomTestdataPattern)
             }
 
@@ -123,20 +119,8 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
                 model("debug/localVariables", excludeDirs = inlineScopesTestDir)
             }
 
-            testClass<AbstractBlackBoxCodegenTest>("BlackBoxModernJdkCodegenTestGenerated") {
-                model("codegen/boxModernJdk")
-            }
-
             testClass<AbstractIrBlackBoxCodegenTest>("IrBlackBoxModernJdkCodegenTestGenerated") {
                 model("codegen/boxModernJdk")
-            }
-
-            testClass<AbstractJvmIrAgainstOldBoxTest> {
-                model("codegen/box/compileKotlinAgainstKotlin")
-            }
-
-            testClass<AbstractJvmOldAgainstIrBoxTest> {
-                model("codegen/box/compileKotlinAgainstKotlin")
             }
 
             testClass<AbstractClassicJvmIrTextTest> {
@@ -150,16 +134,8 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
                 model("ir/sourceRanges")
             }
 
-            testClass<AbstractBytecodeTextTest> {
-                model("codegen/bytecodeText")
-            }
-
             testClass<AbstractIrBytecodeTextTest> {
                 model("codegen/bytecodeText")
-            }
-
-            testClass<AbstractBlackBoxInlineCodegenTest> {
-                model("codegen/boxInline")
             }
 
             testClass<AbstractIrBlackBoxInlineCodegenWithBytecodeInlinerTest> {
@@ -170,23 +146,11 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
                 model("codegen/boxInline")
             }
 
-            testClass<AbstractCompileKotlinAgainstInlineKotlinTest> {
-                model("codegen/boxInline")
-            }
-
             testClass<AbstractIrCompileKotlinAgainstInlineKotlinTest> {
                 model("codegen/boxInline")
             }
 
             testClass<AbstractIrSerializeCompileKotlinAgainstInlineKotlinTest> {
-                model("codegen/boxInline")
-            }
-
-            testClass<AbstractJvmIrAgainstOldBoxInlineTest> {
-                model("codegen/boxInline")
-            }
-
-            testClass<AbstractJvmOldAgainstIrBoxInlineTest> {
                 model("codegen/boxInline")
             }
 
@@ -213,7 +177,7 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
             // ------------- Inline scopes tests duplication -------------
 
             testClass<AbstractFirBlackBoxCodegenTestWithInlineScopes> {
-                model("codegen/box", excludeDirs = k2BoxTestDir + excludedScriptDirs)
+                model("codegen/box", excludeDirs = k1BoxTestDir + excludedScriptDirs)
             }
 
             testClass<AbstractFirBytecodeTextTestWithInlineScopes> {
@@ -351,11 +315,11 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
 
         testGroup(testsRoot = "compiler/fir/fir2ir/tests-gen", testDataRoot = "compiler/testData") {
             testClass<AbstractFirLightTreeBlackBoxCodegenTest> {
-                model("codegen/box", excludeDirs = excludedScriptDirs)
+                model("codegen/box", excludeDirs = k1BoxTestDir + excludedScriptDirs)
             }
 
             testClass<AbstractFirPsiBlackBoxCodegenTest> {
-                model("codegen/box")
+                model("codegen/box", excludeDirs = k1BoxTestDir)
             }
 
             testClass<AbstractFirLightTreeBlackBoxCodegenTest>("FirLightTreeBlackBoxModernJdkCodegenTestGenerated") {
@@ -380,6 +344,22 @@ fun generateJUnit5CompilerTests(args: Array<String>, mainClassName: String?) {
 
             testClass<AbstractFirLightTreeBlackBoxInlineCodegenWithIrInlinerTest> {
                 model("codegen/boxInline")
+            }
+
+            testClass<AbstractComposeLikeIrBlackBoxCodegenTest> {
+                model("codegen/composeLike")
+            }
+
+            testClass<AbstractComposeLikeFirLightTreeBlackBoxCodegenTest> {
+                model("codegen/composeLike")
+            }
+
+            testClass<AbstractComposeLikeIrBytecodeTextTest> {
+                model("codegen/composeLikeBytecodeText")
+            }
+
+            testClass<AbstractComposeLikeFirLightTreeBytecodeTextTest> {
+                model("codegen/composeLikeBytecodeText")
             }
 
             testClass<AbstractFirLightTreeSteppingTest> {

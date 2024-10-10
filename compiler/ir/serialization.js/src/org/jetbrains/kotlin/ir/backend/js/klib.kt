@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
 import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.IrDiagnosticReporter
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.checkers.JsKlibCheckers
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.*
@@ -104,6 +105,7 @@ fun generateKLib(
     jsOutputName: String?,
     icData: List<KotlinFileSerializedData>,
     moduleFragment: IrModuleFragment,
+    irBuiltIns: IrBuiltIns,
     diagnosticReporter: DiagnosticReporter,
     builtInsPlatform: BuiltInsPlatform = BuiltInsPlatform.JS,
     wasmTarget: WasmTarget? = null,
@@ -119,6 +121,7 @@ fun generateKLib(
         outputKlibPath,
         allDependencies,
         moduleFragment,
+        irBuiltIns,
         icData,
         nopack,
         perFile = false,
@@ -453,7 +456,11 @@ class ModulesStructure(
     val allDependenciesResolution = CommonKLibResolver.resolveWithoutDependencies(
         dependencies,
         compilerConfiguration.messageCollector.toLogger(),
-        compilerConfiguration.get(JSConfigurationKeys.ZIP_FILE_SYSTEM_ACCESSOR)
+        compilerConfiguration.get(JSConfigurationKeys.ZIP_FILE_SYSTEM_ACCESSOR),
+        duplicatedUniqueNameStrategy = compilerConfiguration.get(
+            KlibConfigurationKeys.DUPLICATED_UNIQUE_NAME_STRATEGY,
+            DuplicatedUniqueNameStrategy.DENY
+        ),
     )
 
     val allDependencies: List<KotlinLibrary>
@@ -603,6 +610,7 @@ fun serializeModuleIntoKlib(
     klibPath: String,
     dependencies: List<KotlinLibrary>,
     moduleFragment: IrModuleFragment,
+    irBuiltIns: IrBuiltIns,
     cleanFiles: List<KotlinFileSerializedData>,
     nopack: Boolean,
     perFile: Boolean,
@@ -618,6 +626,7 @@ fun serializeModuleIntoKlib(
     val serializerOutput = serializeModuleIntoKlib(
         moduleName = moduleFragment.name.asString(),
         irModuleFragment = moduleFragment,
+        irBuiltins = irBuiltIns,
         configuration = configuration,
         diagnosticReporter = diagnosticReporter,
         compatibilityMode = CompatibilityMode(abiVersion),
@@ -633,22 +642,24 @@ fun serializeModuleIntoKlib(
                 shouldCheckSignaturesOnUniqueness,
             ->
             JsIrModuleSerializer(
+                settings = IrSerializationSettings(
+                    languageVersionSettings = languageVersionSettings,
+                    compatibilityMode = compatibilityMode,
+                    normalizeAbsolutePaths = normalizeAbsolutePaths,
+                    sourceBaseDirs = sourceBaseDirs,
+                    shouldCheckSignaturesOnUniqueness = shouldCheckSignaturesOnUniqueness,
+                ),
                 irDiagnosticReporter,
                 irBuiltins,
-                compatibilityMode,
-                normalizeAbsolutePaths,
-                sourceBaseDirs,
-                languageVersionSettings,
-                shouldCheckSignaturesOnUniqueness,
             ) { JsIrFileMetadata(moduleExportedNames[it]?.values?.toSmartList() ?: emptyList()) }
         },
         metadataSerializer = metadataSerializer,
-        runKlibCheckers = { irModuleFragment, irDiagnosticReporter, compilerConfiguration ->
-            if (builtInsPlatform == BuiltInsPlatform.JS) {
+        platformKlibCheckers = listOfNotNull(
+            { irDiagnosticReporter: IrDiagnosticReporter ->
                 val cleanFilesIrData = cleanFiles.map { it.irData ?: error("Metadata-only KLIBs are not supported in Kotlin/JS") }
-                JsKlibCheckers.check(cleanFilesIrData, irModuleFragment, moduleExportedNames, irDiagnosticReporter, compilerConfiguration)
-            }
-        },
+                JsKlibCheckers.makeChecker(cleanFilesIrData, moduleExportedNames, irDiagnosticReporter, configuration)
+            }.takeIf { builtInsPlatform == BuiltInsPlatform.JS  }
+        ),
         processCompiledFileData = { ioFile, compiledFile ->
             incrementalResultsConsumer?.run {
                 processPackagePart(ioFile, compiledFile.metadata, empty, empty)
@@ -702,7 +713,6 @@ fun serializeModuleIntoKlib(
         linkDependencies = serializerOutput.neededLibraries,
         ir = fullSerializedIr,
         metadata = serializerOutput.serializedMetadata ?: error("expected serialized metadata"),
-        dataFlowGraph = null,
         manifestProperties = properties,
         moduleName = moduleName,
         nopack = nopack,

@@ -6,6 +6,10 @@
 package org.jetbrains.kotlin.backend.konan.optimizations
 
 import org.jetbrains.kotlin.backend.konan.*
+import org.jetbrains.kotlin.backend.konan.ir.annotations.Escapes
+import org.jetbrains.kotlin.backend.konan.ir.annotations.PointsTo
+import org.jetbrains.kotlin.backend.konan.ir.annotations.escapes
+import org.jetbrains.kotlin.backend.konan.ir.annotations.pointsTo
 import org.jetbrains.kotlin.backend.konan.ir.implementedInterfaces
 import org.jetbrains.kotlin.backend.konan.ir.isAbstract
 import org.jetbrains.kotlin.backend.konan.ir.isBuiltInOperator
@@ -30,8 +34,6 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 
 internal object DataFlowIR {
     abstract class Type(
@@ -104,6 +106,12 @@ internal object DataFlowIR {
     class FunctionParameter(val type: Type, val boxFunction: FunctionSymbol?, val unboxFunction: FunctionSymbol?)
 
     abstract class FunctionSymbol(val attributes: Int, val irDeclaration: IrDeclaration?, val name: String?) {
+        init {
+            require(irDeclaration == null || irDeclaration is IrSimpleFunction || irDeclaration is IrField) {
+                "Unexpected declaration: ${irDeclaration?.render()}"
+            }
+        }
+
         lateinit var parameters: Array<FunctionParameter>
         lateinit var returnParameter: FunctionParameter
 
@@ -112,11 +120,11 @@ internal object DataFlowIR {
         val returnsNothing = attributes.and(FunctionAttributes.RETURNS_NOTHING) != 0
         val explicitlyExported = attributes.and(FunctionAttributes.EXPLICITLY_EXPORTED) != 0
 
-        val irFunction: IrFunction? get() = irDeclaration as? IrFunction
+        val irFunction: IrSimpleFunction? get() = irDeclaration as? IrSimpleFunction
         val irFile: IrFile? get() = irDeclaration?.fileOrNull
 
-        var escapes: Int? = null
-        var pointsTo: IntArray? = null
+        var escapes: Escapes? = null
+        var pointsTo: PointsTo? = null
 
         class External(val hash: Long, attributes: Int, irDeclaration: IrDeclaration?, name: String? = null, val isExported: Boolean)
             : FunctionSymbol(attributes, irDeclaration, name) {
@@ -133,7 +141,7 @@ internal object DataFlowIR {
             }
 
             override fun toString(): String {
-                return "ExternalFunction(hash='$hash', name='$name', escapes='$escapes', pointsTo='${pointsTo?.contentToString()}')"
+                return "ExternalFunction(hash='$hash', name='$name', escapes='$escapes', pointsTo='$pointsTo')"
             }
         }
 
@@ -157,7 +165,7 @@ internal object DataFlowIR {
             }
 
             override fun toString(): String {
-                return "PublicFunction(hash='$hash', name='$name', symbolTableIndex='$symbolTableIndex', escapes='$escapes', pointsTo='${pointsTo?.contentToString()})"
+                return "PublicFunction(hash='$hash', name='$name', symbolTableIndex='$symbolTableIndex', escapes='$escapes', pointsTo='$pointsTo')"
             }
         }
 
@@ -177,7 +185,7 @@ internal object DataFlowIR {
             }
 
             override fun toString(): String {
-                return "PrivateFunction(index=$index, symbolTableIndex='$symbolTableIndex', name='$name', escapes='$escapes', pointsTo='${pointsTo?.contentToString()})"
+                return "PrivateFunction(index=$index, symbolTableIndex='$symbolTableIndex', name='$name', escapes='$escapes', pointsTo='$pointsTo')"
             }
         }
     }
@@ -211,19 +219,13 @@ internal object DataFlowIR {
         object Null : Node()
 
         open class Call(val callee: FunctionSymbol, val arguments: List<Edge>, val returnType: Type,
-                        open val irCallSite: IrFunctionAccessExpression?) : Node()
+                        val irCallSite: IrCall?) : Node()
 
-        class StaticCall(callee: FunctionSymbol, arguments: List<Edge>,
-                         val receiverType: Type?, returnType: Type, irCallSite: IrFunctionAccessExpression?)
+        class StaticCall(callee: FunctionSymbol, arguments: List<Edge>, returnType: Type, irCallSite: IrCall?)
             : Call(callee, arguments, returnType, irCallSite)
 
-        // TODO: It can be replaced with a pair(AllocInstance, constructor Call), remove.
-        class NewObject(constructor: FunctionSymbol, arguments: List<Edge>,
-                        val constructedType: Type, override val irCallSite: IrConstructorCall?)
-            : Call(constructor, arguments, constructedType, irCallSite)
-
         open class VirtualCall(callee: FunctionSymbol, arguments: List<Edge>,
-                               val receiverType: Type, returnType: Type, override val irCallSite: IrCall?)
+                               val receiverType: Type, returnType: Type, irCallSite: IrCall?)
             : Call(callee, arguments, returnType, irCallSite)
 
         class VtableCall(callee: FunctionSymbol, receiverType: Type, val calleeVtableIndex: Int,
@@ -236,7 +238,11 @@ internal object DataFlowIR {
 
         class Singleton(val type: Type, val constructor: FunctionSymbol?, val arguments: List<Edge>?) : Node()
 
-        class AllocInstance(val type: Type, val irCallSite: IrCall?) : Node()
+        sealed class Alloc(val type: Type, val irCallSite: IrCall?) : Node()
+
+        class AllocInstance(type: Type, irCallSite: IrCall?) : Alloc(type, irCallSite)
+
+        class AllocArray(type: Type, val size: Edge, irCallSite: IrCall?) : Alloc(type, irCallSite)
 
         class FunctionReference(val symbol: FunctionSymbol, val type: Type, val returnType: Type) : Node()
 
@@ -304,6 +310,9 @@ internal object DataFlowIR {
                 is Node.AllocInstance ->
                     "        ALLOC INSTANCE ${node.type}"
 
+                is Node.AllocArray ->
+                    "        ALLOC ARRAY ${node.type} of size #${ids[node.size.node]!!}"
+
                 is Node.FunctionReference ->
                     "        FUNCTION REFERENCE ${node.symbol}"
 
@@ -329,15 +338,6 @@ internal object DataFlowIR {
                     appendLine("        INTERFACE CALL ${node.callee}. Return type = ${node.returnType}")
                     appendLine("            RECEIVER: ${node.receiverType}")
                     append("            INTERFACE ID: ${node.interfaceId}. ITABLE INDEX: ${node.calleeItableIndex}")
-                    appendList(node.arguments) {
-                        append("            ARG #${ids[it.node]!!}")
-                        appendCastTo(it.castToType)
-                    }
-                }
-
-                is Node.NewObject -> buildString {
-                    appendLine("        NEW OBJECT ${node.callee}")
-                    append("        CONSTRUCTED TYPE ${node.constructedType}")
                     appendList(node.arguments) {
                         append("            ARG #${ids[it.node]!!}")
                         appendCastTo(it.castToType)
@@ -424,14 +424,6 @@ internal object DataFlowIR {
         val functionMap = mutableMapOf<IrDeclaration, FunctionSymbol>()
         val fieldMap = mutableMapOf<IrField, Field>()
 
-        private val NAME_ESCAPES = Name.identifier("Escapes")
-        private val NAME_POINTS_TO = Name.identifier("PointsTo")
-        private val FQ_NAME_KONAN = FqName.fromSegments(listOf("kotlin", "native", "internal"))
-
-        private val FQ_NAME_ESCAPES = FQ_NAME_KONAN.child(NAME_ESCAPES)
-        private val FQ_NAME_POINTS_TO = FQ_NAME_KONAN.child(NAME_POINTS_TO)
-
-        private val konanPackage = context.builtIns.builtInsModule.getPackage(FQ_NAME_KONAN).memberScope
         private val getContinuationSymbol = context.ir.symbols.getContinuation
         private val continuationType = getContinuationSymbol.owner.returnType
 
@@ -444,7 +436,7 @@ internal object DataFlowIR {
                     element.acceptChildrenVoid(this)
                 }
 
-                override fun visitFunction(declaration: IrFunction) {
+                override fun visitSimpleFunction(declaration: IrSimpleFunction) {
                     declaration.body?.let { mapFunction(declaration) }
                 }
 
@@ -569,12 +561,12 @@ internal object DataFlowIR {
                 }
 
         fun mapFunction(declaration: IrDeclaration): FunctionSymbol = when (declaration) {
-            is IrFunction -> mapFunction(declaration)
+            is IrSimpleFunction -> mapFunction(declaration)
             is IrField -> mapPropertyInitializer(declaration)
             else -> error("Unknown declaration: $declaration")
         }
 
-        private fun mapFunction(function: IrFunction): FunctionSymbol = function.target.let {
+        private fun mapFunction(function: IrSimpleFunction): FunctionSymbol = function.target.let {
             functionMap[it]?.let { return it }
 
             val parent = it.parent
@@ -584,7 +576,7 @@ internal object DataFlowIR {
             }
             val name = "kfun:$containingDeclarationPart${it.computeFunctionName()}"
 
-            val returnsUnit = it is IrConstructor || it.returnType.isUnit()
+            val returnsUnit = it.returnType.isUnit()
             val returnsNothing = it.returnType.isNothing()
             var attributes = 0
             if (returnsUnit)
@@ -599,27 +591,21 @@ internal object DataFlowIR {
             }
             val symbol = when {
                 it.isExternal || it.isBuiltInOperator -> {
-                    val escapesAnnotation = it.annotations.findAnnotation(FQ_NAME_ESCAPES)
-                    val pointsToAnnotation = it.annotations.findAnnotation(FQ_NAME_POINTS_TO)
-                    @Suppress("UNCHECKED_CAST")
-                    val escapesBitMask = (escapesAnnotation?.getValueArgument(0) as? IrConst<Int>)?.value
-                    @Suppress("UNCHECKED_CAST")
-                    val pointsToBitMask = (pointsToAnnotation?.getValueArgument(0) as? IrVararg)?.elements?.map { (it as IrConst<Int>).value }
                     FunctionSymbol.External(localHash(name.toByteArray()), attributes, it, takeName { name }, it.isExported()).apply {
-                        escapes  = escapesBitMask
-                        pointsTo = pointsToBitMask?.toIntArray()
+                        escapes  = it.escapes
+                        pointsTo = it.pointsTo
                     }
                 }
 
                 else -> {
-                    val isAbstract = it is IrSimpleFunction && it.modality == Modality.ABSTRACT
+                    val isAbstract = it.modality == Modality.ABSTRACT
                     val irClass = it.parent as? IrClass
                     val bridgeTarget = it.bridgeTarget
                     val isSpecialBridge = bridgeTarget.let {
                         it != null && it.getDefaultValueForOverriddenBuiltinFunction() != null
                     }
                     val bridgeTargetSymbol = if (isSpecialBridge || bridgeTarget == null) null else mapFunction(bridgeTarget)
-                    val placeToFunctionsTable = !isAbstract && it !is IrConstructor && irClass != null
+                    val placeToFunctionsTable = !isAbstract && irClass != null
                             && (it.isOverridableOrOverrides || bridgeTarget != null || function.isSpecial || !irClass.isFinalClass)
                     val symbolTableIndex = if (placeToFunctionsTable) module.numberOfFunctions++ else -1
                     val functionSymbol = if (it.isExported())
@@ -639,7 +625,7 @@ internal object DataFlowIR {
             return symbol
         }
 
-        private val IrFunction.isSpecial get() =
+        private val IrSimpleFunction.isSpecial get() =
             origin == DECLARATION_ORIGIN_INLINE_CLASS_SPECIAL_FUNCTION
                     || origin is DECLARATION_ORIGIN_BRIDGE_METHOD
 

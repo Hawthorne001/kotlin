@@ -34,7 +34,6 @@ import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectOrStaticData
 import org.jetbrains.kotlin.fir.scopes.impl.typeAliasForConstructor
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
@@ -46,6 +45,8 @@ import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.ForbiddenNamedArgumentsTarget
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
@@ -296,7 +297,7 @@ fun createFunctionType(
     return ConeClassLikeTypeImpl(
         functionTypeId.toLookupTag(),
         receiverAndParameterTypes.toTypedArray(),
-        isNullable = false,
+        isMarkedNullable = false,
         attributes = attributes
     )
 }
@@ -308,11 +309,11 @@ fun createKPropertyType(
 ): ConeLookupTagBasedType {
     val arguments = if (receiverType != null) listOf(receiverType, rawReturnType) else listOf(rawReturnType)
     val classId = StandardClassIds.reflectByName("K${if (isMutable) "Mutable" else ""}Property${arguments.size - 1}")
-    return ConeClassLikeTypeImpl(classId.toLookupTag(), arguments.toTypedArray(), isNullable = false)
+    return ConeClassLikeTypeImpl(classId.toLookupTag(), arguments.toTypedArray(), isMarkedNullable = false)
 }
 
 fun BodyResolveComponents.buildResolvedQualifierForClass(
-    regularClass: FirClassLikeSymbol<*>,
+    symbol: FirClassLikeSymbol<*>,
     sourceElement: KtSourceElement?,
     // Note: we need type arguments here, see e.g. testIncompleteConstructorCall in diagnostic group
     typeArgumentsForQualifier: List<FirTypeProjection> = emptyList(),
@@ -320,25 +321,57 @@ fun BodyResolveComponents.buildResolvedQualifierForClass(
     nonFatalDiagnostics: List<ConeDiagnostic> = emptyList(),
     annotations: List<FirAnnotation> = emptyList(),
 ): FirResolvedQualifier {
-    val classId = regularClass.classId
+    return buildResolvedQualifierForClass(
+        symbol,
+        sourceElement,
+        symbol.classId.packageFqName,
+        symbol.classId.relativeClassName,
+        typeArgumentsForQualifier,
+        diagnostic,
+        nonFatalDiagnostics,
+        annotations,
+        explicitParent = null,
+    )
+}
 
+fun BodyResolveComponents.buildResolvedQualifierForClass(
+    symbol: FirClassLikeSymbol<*>?,
+    sourceElement: KtSourceElement?,
+    packageFqName: FqName,
+    relativeClassName: FqName?,
+    typeArgumentsForQualifier: List<FirTypeProjection>,
+    diagnostic: ConeDiagnostic?,
+    nonFatalDiagnostics: List<ConeDiagnostic>?,
+    annotations: List<FirAnnotation>,
+    explicitParent: FirResolvedQualifier?
+): FirResolvedQualifier {
     val builder: FirAbstractResolvedQualifierBuilder = if (diagnostic == null) {
         FirResolvedQualifierBuilder()
     } else {
         FirErrorResolvedQualifierBuilder().apply { this.diagnostic = diagnostic }
     }
 
+    // If we resolve to some qualifier, the parent can't have implicitly resolved to the companion object.
+    // In a case like
+    // class Foo { companion object { class Bar } }
+    // Foo.Bar will be unresolved.
+    if (explicitParent?.resolvedToCompanionObject == true) {
+        explicitParent.replaceResolvedToCompanionObject(false)
+        explicitParent.resultType = session.builtinTypes.unitType.coneType
+    }
+
     return builder.apply {
-        source = sourceElement
-        packageFqName = classId.packageFqName
-        relativeClassFqName = classId.relativeClassName
-        typeArguments.addAll(typeArgumentsForQualifier)
-        symbol = regularClass
-        this.nonFatalDiagnostics.addAll(nonFatalDiagnostics)
+        this.source = sourceElement
+        this.packageFqName = packageFqName
+        this.relativeClassFqName = relativeClassName
+        this.typeArguments.addAll(typeArgumentsForQualifier)
+        this.symbol = symbol
+        nonFatalDiagnostics?.let(this.nonFatalDiagnostics::addAll)
         this.annotations.addAll(annotations)
+        this.explicitParent = explicitParent
     }.build().apply {
-        if (classId.isLocal) {
-            resultType = typeForQualifierByDeclaration(regularClass.fir, session, element = this@apply, file)
+        if (symbol?.classId?.isLocal == true) {
+            resultType = typeForQualifierByDeclaration(symbol.fir, session, element = this@apply, file)
                 ?.also { replaceCanBeValue(true) }
                 ?: session.builtinTypes.unitType.coneType
         } else {
@@ -366,7 +399,7 @@ fun FirResolvedQualifier.setTypeOfQualifier(components: BodyResolveComponents) {
 
 internal fun typeForReifiedParameterReference(parameterReferenceBuilder: FirResolvedReifiedParameterReferenceBuilder): ConeLookupTagBasedType {
     val typeParameterSymbol = parameterReferenceBuilder.symbol
-    return typeParameterSymbol.constructType(emptyArray(), false)
+    return typeParameterSymbol.constructType()
 }
 
 internal fun typeForQualifierByDeclaration(
@@ -378,12 +411,12 @@ internal fun typeForQualifierByDeclaration(
     }
     if (declaration is FirRegularClass) {
         if (declaration.classKind == ClassKind.OBJECT) {
-            return declaration.symbol.constructType(emptyArray(), false)
+            return declaration.symbol.constructType()
         } else {
             val companionObjectSymbol = declaration.companionObjectSymbol
             if (companionObjectSymbol != null) {
                 session.lookupTracker?.recordCompanionLookup(companionObjectSymbol.classId, element.source, file.source)
-                return companionObjectSymbol.constructType(emptyArray(), false)
+                return companionObjectSymbol.constructType()
             }
         }
     }
@@ -475,7 +508,7 @@ private fun BodyResolveComponents.typeFromSymbol(symbol: FirBasedSymbol<*>): Fir
         is FirClassifierSymbol<*> -> {
             buildResolvedTypeRef {
                 source = null
-                coneType = symbol.constructType(emptyArray(), isNullable = false)
+                coneType = symbol.constructType()
             }
         }
         else -> errorWithAttachment("Failed to extract type from symbol: ${symbol::class.java}") {
@@ -553,12 +586,12 @@ fun FirSafeCallExpression.propagateTypeFromQualifiedAccessAfterNullCheck(
     val resultingType = when {
         selector is FirExpression && !selector.isStatementLikeExpression -> {
             val type = selector.resolvedType
-            type.withNullability(ConeNullability.NULLABLE, session.typeContext)
+            type.withNullability(nullable = true, session.typeContext)
         }
         // Branch for things that shouldn't be used as expressions.
         // They are forced to return not-null `Unit`, regardless of the receiver.
         else -> {
-            StandardClassIds.Unit.constructClassLikeType(emptyArray(), isNullable = false)
+            StandardClassIds.Unit.constructClassLikeType(emptyArray(), isMarkedNullable = false)
         }
     }
 
@@ -738,7 +771,9 @@ fun FirNamedReferenceWithCandidate.toErrorReference(diagnostic: ConeDiagnostic):
 }
 
 val FirTypeParameterSymbol.defaultType: ConeTypeParameterType
-    get() = ConeTypeParameterTypeImpl(toLookupTag(), isNullable = false)
+    get() = ConeTypeParameterTypeImpl(toLookupTag(), isMarkedNullable = false)
 
 fun ConeClassLikeLookupTag.isRealOwnerOf(declarationSymbol: FirCallableSymbol<*>): Boolean =
     this == declarationSymbol.dispatchReceiverClassLookupTagOrNull()
+
+val FirUserTypeRef.shortName: Name get() = qualifier.last().name

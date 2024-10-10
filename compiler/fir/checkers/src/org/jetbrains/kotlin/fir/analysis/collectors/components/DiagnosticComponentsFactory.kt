@@ -8,6 +8,9 @@ package org.jetbrains.kotlin.fir.analysis.collectors.components
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.DeclarationCheckersDiagnosticComponent
+import org.jetbrains.kotlin.fir.analysis.checkers.expression.ExpressionCheckersDiagnosticComponent
+import org.jetbrains.kotlin.fir.analysis.checkers.type.TypeCheckersDiagnosticComponent
 import org.jetbrains.kotlin.fir.analysis.collectors.DiagnosticCollectorComponents
 import org.jetbrains.kotlin.fir.analysis.collectors.CliDiagnosticsCollector
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
@@ -27,7 +30,7 @@ object DiagnosticComponentsFactory {
                 add(ErrorNodeDiagnosticCollectorComponent(session, reporter))
                 add(LanguageVersionSettingsDiagnosticComponent(session, reporter))
             }
-        }
+        }.toTypedArray()
         return DiagnosticCollectorComponents(regularComponents, ReportCommitterDiagnosticComponent(session, reporter))
     }
 

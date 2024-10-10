@@ -17,14 +17,26 @@
 package org.jetbrains.kotlin.compose.compiler.gradle
 
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFile
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import javax.inject.Inject
 
-abstract class ComposeCompilerGradlePluginExtension @Inject constructor(objectFactory: ObjectFactory) {
+/**
+ * Provides DSL to configure Compose compiler plugin options.
+ *
+ * It is available in the build scripts under "composeCompiler" name:
+ * ```
+ * composeCompiler {
+ *    ...
+ * }
+ * ```
+ */
+abstract class ComposeCompilerGradlePluginExtension @Inject internal constructor(objectFactory: ObjectFactory) {
     /**
      * Generate function key meta classes with annotations indicating the functions and their group keys.
      *
@@ -49,7 +61,7 @@ abstract class ComposeCompilerGradlePluginExtension @Inject constructor(objectFa
      * number of stable classes/parameters, skippable functions, etc.
      *
      * For more information, see these links:
-     *  - [AndroidX compiler metrics](https://github.com/androidx/androidx/blob/androidx-main/compose/compiler/design/compiler-metrics.md)
+     *  - [AndroidX compiler metrics](https://github.com/JetBrains/kotlin/blob/master/plugins/compose/design/compiler-metrics.md)
      *  - [Composable metrics blog post](https://chrisbanes.me/posts/composable-metrics/)
      */
     abstract val metricsDestination: DirectoryProperty
@@ -62,7 +74,7 @@ abstract class ComposeCompilerGradlePluginExtension @Inject constructor(objectFa
      * which are restartable, which are readonly, etc.
      *
      * For more information, see these links:
-     *  - [AndroidX compiler metrics](https://github.com/androidx/androidx/blob/androidx-main/compose/compiler/design/compiler-metrics.md)
+     *  - [AndroidX compiler metrics](https://github.com/JetBrains/kotlin/blob/master/plugins/compose/design/compiler-metrics.md)
      *  - [Composable metrics blog post](https://chrisbanes.me/posts/composable-metrics/)
      */
     abstract val reportsDestination: DirectoryProperty
@@ -107,7 +119,7 @@ abstract class ComposeCompilerGradlePluginExtension @Inject constructor(objectFa
      * unstable parameters become skippable and lambdas with unstable captures will be memoized.
      *
      * For more information, see this link:
-     *  - [AndroidX strong skipping](https://github.com/androidx/androidx/blob/androidx-main/compose/compiler/design/strong-skipping.md)
+     *  - [AndroidX strong skipping](https://github.com/JetBrains/kotlin/blob/master/plugins/compose/design/strong-skipping.md)
      */
     @Deprecated("Use the featureFlags option instead")
     val enableStrongSkippingMode: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
@@ -118,7 +130,26 @@ abstract class ComposeCompilerGradlePluginExtension @Inject constructor(objectFa
      * For more information, see this link:
      *  - [AndroidX stability configuration file](https://developer.android.com/develop/ui/compose/performance/stability/fix#configuration-file)
      */
+    @Deprecated("Use the stabilityConfigurationFiles option instead")
     abstract val stabilityConfigurationFile: RegularFileProperty
+
+    /**
+     * List of paths to the stability configuration file.
+     *
+     * For more information, see this link:
+     *  - [AndroidX stability configuration file](https://developer.android.com/develop/ui/compose/performance/stability/fix#configuration-file)
+     *
+     * To configure multiple stability configuration files, use the following code:
+     * ```
+     * composeCompiler {
+     *     stabilityConfigurationFiles.addAll(
+     *        project.layout.projectDirectory.file("configuration-file1.conf"),
+     *        project.layout.projectDirectory.file("configuration-file2.conf"),
+     *     )
+     * }
+     * ```
+     */
+    abstract val stabilityConfigurationFiles: ListProperty<RegularFile>
 
     /**
      * Include composition trace markers in the generated code.

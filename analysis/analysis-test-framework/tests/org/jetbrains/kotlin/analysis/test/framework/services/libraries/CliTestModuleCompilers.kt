@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2MetadataCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.cliArgument
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
-import org.jetbrains.kotlin.cli.metadata.K2MetadataCompiler
+import org.jetbrains.kotlin.cli.metadata.KotlinMetadataCompiler
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.config.LanguageFeature
@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.test.MockLibraryUtil
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
+import org.jetbrains.kotlin.test.model.TestFile
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.services.TestServices
@@ -62,7 +63,10 @@ abstract class CliTestModuleCompiler : TestModuleCompiler() {
         dependencyBinaryRoots: Collection<Path>,
         testServices: TestServices,
     ): Path {
+        val allowedLibraryPlatforms = module.directives[Directives.LIBRARY_PLATFORMS].map { it.targetPlatform }
         val compilationErrorExpected = Directives.COMPILATION_ERRORS in module.directives
+                || (allowedLibraryPlatforms.isNotEmpty() && module.targetPlatform !in allowedLibraryPlatforms)
+
         val library = try {
             val outputPath = libraryOutputPath(tmpDir, module.name)
             doCompile(
@@ -87,12 +91,12 @@ abstract class CliTestModuleCompiler : TestModuleCompiler() {
         return library
     }
 
-    override fun compileTestModuleToLibrarySources(module: TestModule, testServices: TestServices): Path {
+    override fun compileSources(files: List<TestFile>, module: TestModule, testServices: TestServices): Path {
         val tmpDir = KtTestUtil.tmpDir("testSourcesToCompile").toPath()
         val librarySourcesPath = tmpDir / "${module.name}-sources.jar"
         val manifest = Manifest().apply { mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0" }
         JarOutputStream(librarySourcesPath.outputStream(), manifest).use { jarOutputStream ->
-            for (testFile in module.files) {
+            for (testFile in files) {
                 val text = testServices.sourceFileProvider.getContentOfSourceFile(testFile)
                 addFileToJar(testFile.relativePath, text, jarOutputStream)
             }
@@ -238,7 +242,7 @@ object MetadataKlibDirTestModuleCompiler : CliTestModuleCompiler() {
         val sourceFiles = sourcesPath.toFile().walkBottomUp()
 
         CompilerTestUtil.executeCompilerAssertSuccessful(
-            K2MetadataCompiler(), buildList {
+            KotlinMetadataCompiler(), buildList {
                 addAll(sourceFiles.mapTo(this) { it.absolutePath })
                 add(K2MetadataCompilerArguments::destination.cliArgument); add(libraryOutputPath.absolutePathString())
                 add(K2MetadataCompilerArguments::moduleName.cliArgument); add(libraryOutputPath.nameWithoutExtension)
@@ -260,11 +264,11 @@ object MetadataKlibDirTestModuleCompiler : CliTestModuleCompiler() {
  */
 object DispatchingTestModuleCompiler : TestModuleCompiler() {
     override fun compile(tmpDir: Path, module: TestModule, dependencyBinaryRoots: Collection<Path>, testServices: TestServices): Path {
-        return getCompiler(module).compileTestModuleToLibrary(module, dependencyBinaryRoots, testServices)
+        return getCompiler(module).compile(tmpDir, module, dependencyBinaryRoots, testServices)
     }
 
-    override fun compileTestModuleToLibrarySources(module: TestModule, testServices: TestServices): Path {
-        return getCompiler(module).compileTestModuleToLibrarySources(module, testServices)
+    override fun compileSources(files: List<TestFile>, module: TestModule, testServices: TestServices): Path {
+        return getCompiler(module).compileSources(module.files, module, testServices)
     }
 
     private fun getCompiler(module: TestModule): CliTestModuleCompiler {

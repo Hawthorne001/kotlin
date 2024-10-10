@@ -250,6 +250,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
+    @TestMetadata("kt71435.kt")
+    public void testKt71435() {
+      runTest("native/native.tests/testData/codegen/cinterop/kt71435.kt");
+    }
+
+    @Test
     @TestMetadata("libiconv.kt")
     public void testLibiconv() {
       runTest("native/native.tests/testData/codegen/cinterop/libiconv.kt");
@@ -893,6 +899,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
+    @TestMetadata("assertDisabled.kt")
+    public void testAssertDisabled() {
+      runTest("native/native.tests/testData/codegen/fileCheck/assertDisabled.kt");
+    }
+
+    @Test
     @TestMetadata("atomics.kt")
     public void testAtomics() {
       runTest("native/native.tests/testData/codegen/fileCheck/atomics.kt");
@@ -1028,6 +1040,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("kt68034.kt")
     public void testKt68034() {
       runTest("native/native.tests/testData/codegen/fileCheck/kt68034.kt");
+    }
+
+    @Test
+    @TestMetadata("noLocalClassesInInlineFunctionExtraction.kt")
+    public void testNoLocalClassesInInlineFunctionExtraction() {
+      runTest("native/native.tests/testData/codegen/fileCheck/noLocalClassesInInlineFunctionExtraction.kt");
     }
 
     @Test
@@ -1615,9 +1633,9 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
-    @TestMetadata("anonymousObjectInInlineFunctionWithCache.kt")
-    public void testAnonymousObjectInInlineFunctionWithCache() {
-      runTest("native/native.tests/testData/codegen/kclass/anonymousObjectInInlineFunctionWithCache.kt");
+    @TestMetadata("bindClassToObjCName.kt")
+    public void testBindClassToObjCName() {
+      runTest("native/native.tests/testData/codegen/kclass/bindClassToObjCName.kt");
     }
 
     @Test

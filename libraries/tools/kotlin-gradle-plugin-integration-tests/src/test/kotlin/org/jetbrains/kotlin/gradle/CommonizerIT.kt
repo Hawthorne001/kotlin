@@ -10,6 +10,8 @@ import org.gradle.internal.os.OperatingSystem
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
+import org.jetbrains.kotlin.gradle.idea.testFixtures.utils.copy
+import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.reportSourceSetCommonizerDependencies
@@ -32,6 +34,9 @@ open class CommonizerIT : KGPBaseTest() {
     companion object {
         private const val commonizerOutput = "Preparing commonized Kotlin/Native libraries"
     }
+
+    override val defaultBuildOptions: BuildOptions
+        get() = super.defaultBuildOptions.enableKmpIsolatedProjectSupport()
 
     @DisplayName("Commonize native distribution with Ios Linux and Windows")
     @GradleTest
@@ -328,7 +333,7 @@ open class CommonizerIT : KGPBaseTest() {
     @DisplayName("KT-46248 single supported native target dependency propagation - cinterop")
     @GradleTest
     fun testSingleSupportedNativeTargetDependencyPropagationCInterop(gradleVersion: GradleVersion) {
-        val nativeMainContainsCInteropDependencyRegex = Regex(""".*Dependency:.*cinterop-dummy.*""")
+        val nativeMainContainsCInteropDependencyRegex = Regex(""".*Dependency:.*cinterop-nativePlatformCinterop-dummy.*""")
         nativeProject("commonize-kt-47523-singleNativeTargetPropagation-cinterop", gradleVersion) {
             build("listNativePlatformMainDependencies") {
                 assertOutputDoesNotContain(nativeMainContainsCInteropDependencyRegex)
@@ -349,7 +354,7 @@ open class CommonizerIT : KGPBaseTest() {
     @DisplayName("KT-48856 single native target dependency propagation - test source set - cinterop")
     @GradleTest
     fun testSingleSupportedNativeTargetDependencyPropagationTestSourceSetCInterop(gradleVersion: GradleVersion) {
-        val nativeMainContainsCInteropDependencyRegex = Regex(""".*Dependency:.*cinterop-sampleInterop.*""")
+        val nativeMainContainsCInteropDependencyRegex = Regex(""".*Dependency:.*platformCinterop-sampleInterop.*""")
         nativeProject("commonize-kt-48856-singleNativeTargetPropagation-testSourceSet", gradleVersion) {
             build("listNativeTestDependencies") {
                 assertOutputContains(
@@ -386,7 +391,7 @@ open class CommonizerIT : KGPBaseTest() {
     @GradleTest
     fun testTwoKotlinTargetsWithSameKonanTarget(gradleVersion: GradleVersion) {
         nativeProject("commonize-kt-49735-twoKotlinTargets-oneKonanTarget", gradleVersion) {
-            build(":assemble") {
+            build(":assemble", "-Pkotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError") {
                 assertTasksExecuted(":compileCommonMainKotlinMetadata")
             }
         }
@@ -476,26 +481,6 @@ open class CommonizerIT : KGPBaseTest() {
                 assertTasksSkipped(":cinteropSimpleTarget2")
                 assertTasksExecuted(":cinteropSimpleTarget1")
                 assertTasksExecuted(":commonizeCInterop")
-            }
-        }
-    }
-
-    @DisplayName("KT-52243 cinterop caching")
-    @GradleTest
-    fun testCInteropCaching(gradleVersion: GradleVersion) {
-        nativeProject("commonizeCurlInterop", gradleVersion) {
-
-            configureCommonizerTargets()
-
-            val localBuildCacheDir = projectPath.resolve("local-build-cache-dir").also { assertTrue(it.toFile().mkdirs()) }
-            enableLocalBuildCache(localBuildCacheDir)
-
-            build(":commonize", buildOptions = defaultBuildOptions.copy(buildCacheEnabled = true)) {
-                assertTasksExecuted(":cinteropCurlTargetA", ":cinteropCurlTargetB")
-            }
-            build(":clean") {}
-            build(":commonize", buildOptions = defaultBuildOptions.copy(buildCacheEnabled = true)) {
-                assertTasksFromCache(":cinteropCurlTargetA", ":cinteropCurlTargetB")
             }
         }
     }
@@ -602,25 +587,25 @@ open class CommonizerIT : KGPBaseTest() {
                 getCommonizerDependencies("nativeMain").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                     assertDependencyFilesMatches(".*nativeHelper")
                     assertTargetOnAllDependencies(
-                        CommonizerTarget(IOS_X64, IOS_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64, MINGW_X64)
+                        CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64, MINGW_X64)
                     )
                 }
 
                 getCommonizerDependencies("nativeTest").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                     assertDependencyFilesMatches(".*nativeHelper", ".*nativeTestHelper")
                     assertTargetOnAllDependencies(
-                        CommonizerTarget(IOS_X64, IOS_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64, MINGW_X64)
+                        CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64, MINGW_X64)
                     )
                 }
 
                 getCommonizerDependencies("unixMain").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                     assertDependencyFilesMatches(".*nativeHelper", ".*unixHelper")
-                    assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64))
+                    assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64))
                 }
 
                 getCommonizerDependencies("unixTest").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                     assertDependencyFilesMatches(".*nativeHelper", ".*unixHelper", ".*nativeTestHelper")
-                    assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64))
+                    assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64, LINUX_X64, LINUX_ARM64, MACOS_X64))
                 }
 
                 getCommonizerDependencies("linuxMain").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
@@ -641,24 +626,24 @@ open class CommonizerIT : KGPBaseTest() {
                 if (isMac) {
                     getCommonizerDependencies("appleMain").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                         assertDependencyFilesMatches(".*nativeHelper", ".*unixHelper", ".*appleHelper")
-                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, MACOS_X64))
+                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64, MACOS_X64))
                     }
 
                     getCommonizerDependencies("appleTest").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                         assertDependencyFilesMatches(".*nativeHelper", ".*unixHelper", ".*appleHelper", ".*nativeTestHelper")
-                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, MACOS_X64))
+                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64, MACOS_X64))
                     }
 
                     getCommonizerDependencies("iosMain").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                         assertDependencyFilesMatches(".*nativeHelper", ".*unixHelper", ".*appleHelper")
-                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64))
+                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64))
                     }
 
                     getCommonizerDependencies("iosTest").withoutNativeDistributionDependencies(konanDataDirProperty).apply {
                         assertDependencyFilesMatches(
                             ".*nativeHelper", ".*unixHelper", ".*appleHelper", ".*nativeTestHelper", ".*iosTestHelper"
                         )
-                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64))
+                        assertTargetOnAllDependencies(CommonizerTarget(IOS_X64, IOS_ARM64, IOS_SIMULATOR_ARM64))
                     }
 
                     getCommonizerDependencies("macosMain").assertEmpty()
@@ -667,6 +652,8 @@ open class CommonizerIT : KGPBaseTest() {
                     getCommonizerDependencies("iosX64Test").assertEmpty()
                     getCommonizerDependencies("iosArm64Main").assertEmpty()
                     getCommonizerDependencies("iosArm64Test").assertEmpty()
+                    getCommonizerDependencies("iosSimulatorArm64Main").assertEmpty()
+                    getCommonizerDependencies("iosSimulatorArm64Test").assertEmpty()
                 }
 
                 getCommonizerDependencies("windowsX64Main").assertEmpty()

@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.references.FirResolvedErrorReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.*
+import org.jetbrains.kotlin.fir.resolve.ResolutionMode.ArrayLiteralPosition
 import org.jetbrains.kotlin.fir.resolve.calls.ConeResolvedLambdaAtom
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.candidate
@@ -37,6 +38,7 @@ import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.transformers.FirStatusResolver
 import org.jetbrains.kotlin.fir.resolve.transformers.contracts.runContractResolveForFunction
 import org.jetbrains.kotlin.fir.resolve.transformers.transformVarargTypeToArrayType
+import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
@@ -276,13 +278,13 @@ open class FirDeclarationsResolveTransformer(
         val propertyReferenceAccess = resolvedArgumentMapping?.keys?.toList()?.getOrNull(1) as? FirCallableReferenceAccess ?: return
         val type = propertyReferenceAccess.resolvedType
         if (property.returnTypeRef is FirResolvedTypeRef) {
-            val typeArguments = (type.type as ConeClassLikeType).typeArguments
+            val typeArguments = (type as ConeClassLikeType).typeArguments
             val extensionType = property.receiverParameter?.typeRef?.coneType
             val dispatchType = context.containingRegularClass?.let { containingClass ->
                 containingClass.symbol.constructStarProjectedType(containingClass.typeParameters.size)
             }
             propertyReferenceAccess.replaceConeTypeOrNull(
-                (type.type as ConeClassLikeType).lookupTag.constructClassType(
+                type.lookupTag.constructClassType(
                     typeArguments.mapIndexed { index, argument ->
                         when (index) {
                             typeArguments.lastIndex -> property.returnTypeRef.coneType
@@ -290,7 +292,6 @@ open class FirDeclarationsResolveTransformer(
                             else -> dispatchType
                         } ?: argument
                     }.toTypedArray(),
-                    isNullable = false
                 ).also {
                     session.lookupTracker?.recordTypeResolveAsLookup(
                         it,
@@ -1043,10 +1044,15 @@ open class FirDeclarationsResolveTransformer(
         data: ResolutionMode
     ): FirValueParameter = whileAnalysing(session, valueParameter) {
         dataFlowAnalyzer.enterValueParameter(valueParameter)
+        val insideAnnotationConstructorDeclaration =
+            (valueParameter.containingFunctionSymbol as? FirConstructorSymbol)?.resolvedReturnType?.toClassSymbol(session)?.classKind == ClassKind.ANNOTATION_CLASS
         val result = context.withValueParameter(valueParameter, session) {
             transformDeclarationContent(
                 valueParameter,
-                withExpectedType(valueParameter.returnTypeRef)
+                withExpectedType(
+                    valueParameter.returnTypeRef,
+                    arrayLiteralPosition = if (insideAnnotationConstructorDeclaration) ArrayLiteralPosition.AnnotationParameter else null
+                )
             ) as FirValueParameter
         }
 
@@ -1149,7 +1155,11 @@ open class FirDeclarationsResolveTransformer(
         val anonymousFunction = anonymousFunctionExpression.anonymousFunction
         val resolvedLambdaAtom = (expectedTypeRef as? FirResolvedTypeRef)?.let {
             extractLambdaInfoFromFunctionType(
-                it.coneType, anonymousFunctionExpression, anonymousFunction, returnTypeVariable = null, components, candidate = null,
+                it.coneType,
+                anonymousFunctionExpression,
+                anonymousFunction,
+                returnTypeVariable = null,
+                components,
                 allowCoercionToExtensionReceiver = true,
                 sourceForFunctionExpression = null,
             )

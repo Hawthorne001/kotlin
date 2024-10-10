@@ -10,13 +10,13 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.impl.FirPrimaryConstructor
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeRawScopeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.impl.*
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhaseWithCallableMembers
 import org.jetbrains.kotlin.fir.types.*
@@ -44,6 +44,14 @@ class FirKotlinScopeProvider(
         }
 
         return scopeSession.getOrBuild(useSiteSession to klass.symbol, USE_SITE) {
+            // Optimization for enum entries that don't declare any members: just use the supertype scope.
+            // Otherwise, we'll get quadratic memory consumption as every enum entry contains every enum entry's name in its callable name
+            // cache.
+            if (klass.classKind == ClassKind.ENUM_ENTRY && klass.declarations.singleOrNull() is FirPrimaryConstructor) {
+                klass.superConeTypes.singleOrNull()?.scopeForSupertype(useSiteSession, scopeSession, klass, memberRequiredPhase)
+                    ?.let { return@getOrBuild FirTrivialEnumEntryScope(klass, it) }
+            }
+
             val declaredScope = useSiteSession.declaredMemberScope(klass, memberRequiredPhase)
             val possiblyDelegatedDeclaredMemberScope = declaredMemberScopeDecorator(
                 klass,
@@ -250,7 +258,7 @@ fun ConeKotlinType.scopeForSupertype(
 
 fun ConeClassLikeType.substitutorForSuperType(useSiteSession: FirSession, classTypeSymbol: FirRegularClassSymbol): ConeSubstitutor {
     return when {
-        this.type.attributes.contains(CompilerConeAttributes.RawType) -> ConeRawScopeSubstitutor(useSiteSession)
+        this.attributes.contains(CompilerConeAttributes.RawType) -> ConeRawScopeSubstitutor(useSiteSession)
         else -> substitutor(classTypeSymbol, this, useSiteSession)
     }
 }

@@ -23,7 +23,7 @@ public interface KaJavaInteroperabilityComponent {
     /**
      * Converts the given [KaType] to [PsiType] under [useSitePosition] context.
      *
-     * Note: [PsiType] is JVM conception, so this method will return `null` for non-JVM platforms.
+     * Note: [PsiType] is JVM conception, so this method will return `null` for non-JVM platforms, unless [allowNonJvmPlatforms] is set.
      *
      * @receiver type to convert
      *
@@ -45,6 +45,9 @@ public interface KaJavaInteroperabilityComponent {
      *
      * @param forceValueClassResolution if **false** and underlying [TypeMappingMode.needInlineClassWrapping] is **false** then
      * the result doesn't guarantee that a value class will be unwrapped.
+     *
+     * @param allowNonJvmPlatforms if **true** the resulting type is computed even for non-JVM modules. The flag provides no validity
+     * guarantees – the returned type may be unresolvable from Java, or `null`.
      */
     @KaExperimentalApi
     public fun KaType.asPsiType(
@@ -55,6 +58,7 @@ public interface KaJavaInteroperabilityComponent {
         suppressWildcards: Boolean? = null,
         preserveAnnotations: Boolean = true,
         forceValueClassResolution: Boolean = true,
+        allowNonJvmPlatforms: Boolean = false,
     ): PsiType?
 
     /**
@@ -94,7 +98,7 @@ public interface KaJavaInteroperabilityComponent {
     /**
      * Maps the given [PsiClass] declaration to a Kotlin class symbol.
      *
-     * [namedClassSymbol] is always `null` for anonymous classes, type parameters (which are also [PsiClass]es),
+     * [namedClassSymbol] is always `null` for anonymous classes, local classes, type parameters (which are also [PsiClass]es),
      * and for Kotlin light classes.
      */
     public val PsiClass.namedClassSymbol: KaNamedClassSymbol?

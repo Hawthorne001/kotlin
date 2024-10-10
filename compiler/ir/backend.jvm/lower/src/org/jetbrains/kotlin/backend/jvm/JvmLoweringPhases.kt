@@ -80,7 +80,6 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
 
     ::InterfaceLowering,
     ::InheritedDefaultMethodsOnClassesLowering,
-    ::ReplaceDefaultImplsOverriddenSymbols,
     ::InterfaceSuperCallsLowering,
     ::InterfaceDefaultCallsLowering,
     ::InterfaceObjectCallsLowering,
@@ -126,7 +125,6 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
 
 val jvmLoweringPhases = SameTypeNamedCompilerPhase(
     name = "IrLowering",
-    description = "IR lowering",
     nlevels = 1,
     actions = DEFAULT_IR_ACTIONS,
     lower = buildModuleLoweringsPhase(
@@ -150,7 +148,11 @@ val jvmLoweringPhases = SameTypeNamedCompilerPhase(
         ::InlinedClassReferencesBoxingLowering,
         ::RestoreInlineLambda,
     ).then(
-        performByIrFile("PerformByIrFile", lower = jvmFilePhases)
+        performByIrFile(
+            name = "PerformByIrFile",
+            lower = jvmFilePhases,
+            supportParallel = false,
+        )
     ) then buildModuleLoweringsPhase(
         ::GenerateMultifileFacades,
         ::ResolveInlineCalls,

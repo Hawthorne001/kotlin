@@ -25,7 +25,46 @@ import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.wasm.resolve.WasmPlatformAnalyzerServices
 import org.jetbrains.kotlin.wasm.resolve.WasmWasiPlatformAnalyzerServices
 
-object FirWasmSessionFactory : FirAbstractSessionFactory() {
+@OptIn(SessionConfiguration::class)
+object FirWasmSessionFactory : FirAbstractSessionFactory<FirWasmSessionFactory.Context, FirWasmSessionFactory.Context>() {
+
+    // ==================================== Library session ====================================
+
+    fun createLibrarySession(
+        mainModuleName: Name,
+        resolvedLibraries: List<KotlinLibrary>,
+        sessionProvider: FirProjectSessionProvider,
+        moduleDataProvider: ModuleDataProvider,
+        extensionRegistrars: List<FirExtensionRegistrar>,
+        languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
+        wasmTarget: WasmTarget,
+    ): FirSession = createLibrarySession(
+        mainModuleName,
+        Context(wasmTarget),
+        sessionProvider,
+        moduleDataProvider,
+        languageVersionSettings,
+        extensionRegistrars,
+        createProviders = { session, builtinsModuleData, kotlinScopeProvider, syntheticFunctionInterfaceProvider ->
+            listOfNotNull(
+                KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, resolvedLibraries),
+                FirBuiltinSyntheticFunctionInterfaceProvider.initialize(session, builtinsModuleData, kotlinScopeProvider),
+                syntheticFunctionInterfaceProvider,
+            )
+        }
+    )
+
+    override fun createKotlinScopeProviderForLibrarySession(): FirKotlinScopeProvider {
+        return FirKotlinScopeProvider { _, declaredMemberScope, _, _, _ -> declaredMemberScope }
+    }
+
+    override fun FirSession.registerLibrarySessionComponents(c: FirWasmSessionFactory.Context) {
+        registerDefaultComponents()
+        registerWasmComponents(c.wasmTarget)
+    }
+
+    // ==================================== Platform session ====================================
+
     fun createModuleBasedSession(
         moduleData: FirModuleData,
         sessionProvider: FirProjectSessionProvider,
@@ -34,29 +73,18 @@ object FirWasmSessionFactory : FirAbstractSessionFactory() {
         wasmTarget: WasmTarget,
         lookupTracker: LookupTracker?,
         icData: KlibIcData? = null,
-        registerExtraComponents: ((FirSession) -> Unit) = {},
         init: FirSessionConfigurator.() -> Unit
     ): FirSession {
         return createModuleBasedSession(
             moduleData,
+            Context(wasmTarget),
             sessionProvider,
             extensionRegistrars,
             languageVersionSettings,
             lookupTracker,
-            null,
-            null,
+            enumWhenTracker = null,
+            importTracker = null,
             init,
-            registerExtraComponents = {
-                it.registerDefaultComponents()
-                registerExtraComponents(it)
-                @OptIn(SessionConfiguration::class)
-                it.register(
-                    FirDefaultImportProviderHolder::class,
-                    FirDefaultImportProviderHolder(if (wasmTarget == WasmTarget.JS) WasmPlatformAnalyzerServices else WasmWasiPlatformAnalyzerServices)
-                )
-            },
-            registerExtraCheckers = { it.registerWasmCheckers(wasmTarget) },
-            createKotlinScopeProvider = { FirKotlinScopeProvider { _, declaredMemberScope, _, _, _ -> declaredMemberScope } },
             createProviders = { session, kotlinScopeProvider, symbolProvider, generatedSymbolsProvider, dependencies ->
                 listOfNotNull(
                     symbolProvider,
@@ -75,31 +103,34 @@ object FirWasmSessionFactory : FirAbstractSessionFactory() {
         )
     }
 
-    fun createLibrarySession(
-        mainModuleName: Name,
-        resolvedLibraries: List<KotlinLibrary>,
-        sessionProvider: FirProjectSessionProvider,
-        moduleDataProvider: ModuleDataProvider,
-        extensionRegistrars: List<FirExtensionRegistrar>,
-        languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
-        registerExtraComponents: ((FirSession) -> Unit),
-    ): FirSession = createLibrarySession(
-        mainModuleName,
-        sessionProvider,
-        moduleDataProvider,
-        languageVersionSettings,
-        extensionRegistrars,
-        registerExtraComponents = {
-            it.registerDefaultComponents()
-            registerExtraComponents(it)
-        },
-        createKotlinScopeProvider = { FirKotlinScopeProvider { _, declaredMemberScope, _, _, _ -> declaredMemberScope } },
-        createProviders = { session, builtinsModuleData, kotlinScopeProvider, syntheticFunctionInterfaceProvider ->
-            listOfNotNull(
-                KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, resolvedLibraries),
-                FirBuiltinSyntheticFunctionInterfaceProvider.initialize(session, builtinsModuleData, kotlinScopeProvider),
-                syntheticFunctionInterfaceProvider,
-            )
+    override fun createKotlinScopeProviderForSourceSession(
+        moduleData: FirModuleData,
+        languageVersionSettings: LanguageVersionSettings,
+    ): FirKotlinScopeProvider {
+        return FirKotlinScopeProvider { _, declaredMemberScope, _, _, _ -> declaredMemberScope }
+    }
+
+    override fun FirSessionConfigurator.registerPlatformCheckers(c: Context) {
+        registerWasmCheckers(c.wasmTarget)
+    }
+
+    override fun FirSession.registerSourceSessionComponents(c: Context) {
+        registerDefaultComponents()
+        registerWasmComponents(c.wasmTarget)
+    }
+
+    @OptIn(SessionConfiguration::class)
+    fun FirSession.registerWasmComponents(wasmTarget: WasmTarget) {
+        val analyzerServices = when (wasmTarget) {
+            WasmTarget.JS -> WasmPlatformAnalyzerServices
+            WasmTarget.WASI -> WasmWasiPlatformAnalyzerServices
         }
-    )
+        register(FirDefaultImportProviderHolder::class, FirDefaultImportProviderHolder(analyzerServices))
+    }
+
+    // ==================================== Common parts ====================================
+
+    // ==================================== Utilities ====================================
+
+    class Context(val wasmTarget: WasmTarget)
 }

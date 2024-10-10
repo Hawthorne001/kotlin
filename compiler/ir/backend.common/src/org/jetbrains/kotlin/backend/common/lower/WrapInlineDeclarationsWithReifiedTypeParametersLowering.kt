@@ -28,18 +28,20 @@ import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.util.setDeclarationsParent
 import org.jetbrains.kotlin.ir.util.typeSubstitutionMap
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
+import org.jetbrains.kotlin.ir.visitors.IrTransformer
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
-// Replace callable reference on inline function with reified parameter
-// with callable reference on new non inline function with substituted types
+/**
+ * Replaces callable reference to an inline function with reified parameter with a callable reference to a new non-inline function
+ * with substituted types.
+ */
 class WrapInlineDeclarationsWithReifiedTypeParametersLowering(val context: BackendContext) : BodyLoweringPass {
     private val irFactory
         get() = context.irFactory
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
-        irBody.transformChildren(object : IrElementTransformer<IrDeclarationParent?> {
+        irBody.transformChildren(object : IrTransformer<IrDeclarationParent?>() {
             override fun visitDeclaration(declaration: IrDeclarationBase, data: IrDeclarationParent?) =
                 super.visitDeclaration(declaration, declaration as? IrDeclarationParent ?: data)
 

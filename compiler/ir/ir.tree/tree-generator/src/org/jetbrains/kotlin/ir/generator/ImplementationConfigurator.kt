@@ -5,11 +5,9 @@
 
 package org.jetbrains.kotlin.ir.generator
 
-import org.jetbrains.kotlin.generators.tree.ImplementationKind
 import org.jetbrains.kotlin.generators.tree.StandardTypes
 import org.jetbrains.kotlin.generators.tree.Visibility
 import org.jetbrains.kotlin.generators.tree.imports.ArbitraryImportable
-import org.jetbrains.kotlin.generators.tree.isSubclassOf
 import org.jetbrains.kotlin.generators.tree.printer.FunctionParameter
 import org.jetbrains.kotlin.generators.tree.printer.VariableKind
 import org.jetbrains.kotlin.generators.tree.printer.printFunctionWithBlockBody
@@ -58,7 +56,6 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
         }
 
         allImplOf(function) {
-            defaultEmptyList("valueParameters")
             defaultNull("dispatchReceiverParameter", "extensionReceiverParameter", "body")
             default("contextReceiverParametersCount", "0")
             isLateinit("returnType")
@@ -136,9 +133,6 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
             default("startOffset", undefinedOffset(), withGetter = true)
             default("endOffset", undefinedOffset(), withGetter = true)
             default("name", "descriptor.name", withGetter = true)
-        }.apply {
-            // TODO: should be generated again after KT-68314 is fixed
-            doPrint = false
         }
 
         impl(errorDeclaration) {
@@ -315,40 +309,40 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
                 println()
                 printlnMultiLine("""
                     companion object {
-                        fun string(startOffset: Int, endOffset: Int, type: IrType, value: String): IrConstImpl<String> =
+                        fun string(startOffset: Int, endOffset: Int, type: IrType, value: String): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.String, value)
                 
-                        fun int(startOffset: Int, endOffset: Int, type: IrType, value: Int): IrConstImpl<Int> =
+                        fun int(startOffset: Int, endOffset: Int, type: IrType, value: Int): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Int, value)
                 
-                        fun constNull(startOffset: Int, endOffset: Int, type: IrType): IrConstImpl<Nothing?> =
+                        fun constNull(startOffset: Int, endOffset: Int, type: IrType): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Null, null)
                 
-                        fun boolean(startOffset: Int, endOffset: Int, type: IrType, value: Boolean): IrConstImpl<Boolean> =
+                        fun boolean(startOffset: Int, endOffset: Int, type: IrType, value: Boolean): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Boolean, value)
                 
-                        fun constTrue(startOffset: Int, endOffset: Int, type: IrType): IrConstImpl<Boolean> =
+                        fun constTrue(startOffset: Int, endOffset: Int, type: IrType): IrConstImpl =
                             boolean(startOffset, endOffset, type, true)
                 
-                        fun constFalse(startOffset: Int, endOffset: Int, type: IrType): IrConstImpl<Boolean> =
+                        fun constFalse(startOffset: Int, endOffset: Int, type: IrType): IrConstImpl =
                             boolean(startOffset, endOffset, type, false)
                 
-                        fun long(startOffset: Int, endOffset: Int, type: IrType, value: Long): IrConstImpl<Long> =
+                        fun long(startOffset: Int, endOffset: Int, type: IrType, value: Long): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Long, value)
                 
-                        fun float(startOffset: Int, endOffset: Int, type: IrType, value: Float): IrConstImpl<Float> =
+                        fun float(startOffset: Int, endOffset: Int, type: IrType, value: Float): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Float, value)
                 
-                        fun double(startOffset: Int, endOffset: Int, type: IrType, value: Double): IrConstImpl<Double> =
+                        fun double(startOffset: Int, endOffset: Int, type: IrType, value: Double): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Double, value)
                 
-                        fun char(startOffset: Int, endOffset: Int, type: IrType, value: Char): IrConstImpl<Char> =
+                        fun char(startOffset: Int, endOffset: Int, type: IrType, value: Char): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Char, value)
                 
-                        fun byte(startOffset: Int, endOffset: Int, type: IrType, value: Byte): IrConstImpl<Byte> =
+                        fun byte(startOffset: Int, endOffset: Int, type: IrType, value: Byte): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Byte, value)
                 
-                        fun short(startOffset: Int, endOffset: Int, type: IrType, value: Short): IrConstImpl<Short> =
+                        fun short(startOffset: Int, endOffset: Int, type: IrType, value: Short): IrConstImpl =
                             IrConstImpl(startOffset, endOffset, type, IrConstKind.Short, value)
                     }
                 """.trimIndent())
@@ -357,10 +351,6 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
 
         allImplOf(memberAccessExpression) {
             defaultNull("dispatchReceiver", "extensionReceiver")
-        }
-
-        allImplOf(functionAccessExpression) {
-            default("contextReceiversCount", "0")
         }
 
         impl(call) {

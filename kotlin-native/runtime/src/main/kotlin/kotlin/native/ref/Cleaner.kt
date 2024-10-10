@@ -11,6 +11,7 @@ import kotlin.native.concurrent.*
 import kotlin.native.internal.*
 import kotlinx.cinterop.NativePtr
 import kotlinx.cinterop.*
+import kotlin.native.internal.escapeAnalysis.Escapes
 
 /**
  * The marker interface for objects that have a cleanup action associated with them.
@@ -108,7 +109,7 @@ internal fun <T> createCleanerImpl(resource: T, cleanupAction: (T) -> Unit): Cle
     return CleanerImpl(cleanPtr)
 }
 
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION_ERROR")
 @ExperimentalNativeApi
 @NoReorderFields
 @ExportTypeInfo("theCleanerImplTypeInfo")

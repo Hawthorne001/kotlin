@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -556,8 +556,6 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                 p.printWithNoIndent("dynamic")
             is IrErrorType ->
                 p.printWithNoIndent("ErrorType")
-            else ->
-                p.printWithNoIndent("??? /* ERROR: unknown type: ${this.javaClass.simpleName} */")
         }
     }
 
@@ -628,9 +626,16 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction, data: IrDeclaration?) {
         if (declaration.isExpect && !options.printExpectDeclarations) return
+        val keyword = buildString {
+            if (declaration.isStatic) {
+                append(customModifier("static"))
+                append(' ')
+            }
+            append("fun ")
+        }
         declaration.printSimpleFunction(
             data,
-            "fun ",
+            keyword,
             declaration.name.asString(),
             printTypeParametersAndExtensionReceiver = true,
             printSignatureAndBody = true,
@@ -837,6 +842,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         // TODO we can omit type for set parameter
 
         p(declaration.isConst, "const")
+        p(declaration.getter?.isStatic == true, customModifier("static"))
         p.printWithNoIndent(if (declaration.isVar) "var" else "val")
         p.printWithNoIndent(" ")
 
@@ -903,13 +909,13 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
     }
 
     private fun IrSimpleFunction.printAccessor(s: String, property: IrDeclaration) {
-        val isDefaultAccessor = origin != IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
+        val isCustomAccessor = origin != IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
         printSimpleFunction(
             property,
             keyword = "",
             name = s,
             printTypeParametersAndExtensionReceiver = false,
-            printSignatureAndBody = isDefaultAccessor,
+            printSignatureAndBody = isCustomAccessor,
             printExtraTrailingNewLine = false,
         )
     }
@@ -938,7 +944,13 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
             p.printWithNoIndent(" ")
         }
 
-        p.printWithNoIndent(if (declaration.isFinal) "val " else "var ")
+        p.printWithNoIndent(
+            when {
+                declaration.correspondingPropertySymbol != null -> "field "
+                declaration.isFinal -> "val "
+                else -> "var "
+            }
+        )
         p.printWithNoIndent(declaration.name.asString() + ": ")
         declaration.type.printTypeWithNoIndent()
 
@@ -1338,7 +1350,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         }
     }
 
-    override fun visitConst(expression: IrConst<*>, data: IrDeclaration?) = wrap(expression, data) {
+    override fun visitConst(expression: IrConst, data: IrDeclaration?) = wrap(expression, data) {
         val kind = expression.kind
 
         val (prefix, postfix) = when (kind) {
@@ -1425,7 +1437,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         branch.condition.let {
             // Deserialized IR contains no IrElseBranch nodes. They are represented with IrBranch(condition=true)
             // To match Kotlin-like IR dump before serialization, the following logic tried to infer IR node which was before serialization
-            if (options.inferElseBranches && it is IrConst<*> && it.value == true && branch == currentWhenStmt?.branches?.last())
+            if (options.inferElseBranches && it is IrConst && it.value == true && branch == currentWhenStmt?.branches?.last())
                 p.printWithNoIndent("else")
             else
                 it.accept(this, data)
@@ -1437,7 +1449,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
 
     override fun visitElseBranch(branch: IrElseBranch, data: IrDeclaration?) = wrap(branch, data) {
         p.printIndent()
-        if ((branch.condition as? IrConst<*>)?.value == true) {
+        if ((branch.condition as? IrConst)?.value == true) {
             p.printWithNoIndent("else")
         } else {
             p.printWithNoIndent("/* else */ ")
@@ -1518,8 +1530,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
     }
 
     override fun visitClassReference(expression: IrClassReference, data: IrDeclaration?) = wrap(expression, data) {
-        // TODO use classType
-        p.printWithNoIndent(expression.symbol.safeName)
+        expression.classType.printTypeWithNoIndent()
         p.printWithNoIndent("::class")
     }
 

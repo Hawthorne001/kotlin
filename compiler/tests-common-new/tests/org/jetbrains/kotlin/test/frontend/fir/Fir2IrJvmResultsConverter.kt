@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
+import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
 import org.jetbrains.kotlin.fir.backend.Fir2IrVisibilityConverter
 import org.jetbrains.kotlin.fir.backend.jvm.*
 import org.jetbrains.kotlin.fir.backend.utils.extractFirDeclarations
@@ -24,8 +25,8 @@ import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.util.KotlinMangler
+import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.metadata.KlibMetadataFactories
-import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
@@ -51,11 +52,16 @@ internal class Fir2IrJvmResultsConverter(testServices: TestServices) : AbstractF
         return JvmIrSpecialAnnotationSymbolProvider
     }
 
-    override fun createExtraActualDeclarationExtractorInitializer(): (Fir2IrComponents) -> IrExtraActualDeclarationExtractor? {
-        return FirJvmBuiltinProviderActualDeclarationExtractor.Companion::initializeIfNeeded
+    override fun createExtraActualDeclarationExtractorInitializer(): (Fir2IrComponents) -> List<IrExtraActualDeclarationExtractor> {
+        return {
+            listOfNotNull(
+                FirJvmBuiltinProviderActualDeclarationExtractor.initializeIfNeeded(it),
+                FirDirectJavaActualDeclarationExtractor.initializeIfNeeded(it)
+            )
+        }
     }
 
-    override fun resolveLibraries(module: TestModule, compilerConfiguration: CompilerConfiguration): List<KotlinResolvedLibrary> {
+    override fun resolveLibraries(module: TestModule, compilerConfiguration: CompilerConfiguration): List<KotlinLibrary> {
         val compilerConfigurationProvider = testServices.compilerConfigurationProvider
         // Create and initialize the module and its dependencies
         compilerConfigurationProvider.getProject(module)
@@ -64,6 +70,13 @@ internal class Fir2IrJvmResultsConverter(testServices: TestServices) : AbstractF
 
     override val klibFactories: KlibMetadataFactories
         get() = error("Should not be called")
+
+    override fun createFir2IrConfiguration(
+        compilerConfiguration: CompilerConfiguration,
+        diagnosticReporter: BaseDiagnosticsCollector,
+    ): Fir2IrConfiguration {
+        return Fir2IrConfiguration.forJvmCompilation(compilerConfiguration, diagnosticReporter)
+    }
 
     override fun createBackendInput(
         module: TestModule,
@@ -79,6 +92,7 @@ internal class Fir2IrJvmResultsConverter(testServices: TestServices) : AbstractF
 
         val backendInput = JvmIrCodegenFactory.JvmIrBackendInput(
             fir2IrResult.irModuleFragment,
+            fir2IrResult.irBuiltIns,
             fir2IrResult.symbolTable,
             phaseConfig,
             fir2IrResult.components.irProviders,

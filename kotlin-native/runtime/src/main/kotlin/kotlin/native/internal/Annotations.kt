@@ -66,19 +66,6 @@ internal annotation class ExportTypeInfo(val name: String)
 @Retention(AnnotationRetention.BINARY)
 internal annotation class VolatileLambda
 
-/**
- * Escape analysis annotations.
- */
-@Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.BINARY)
-internal annotation class Escapes(val who: Int)
-
-// Decyphering of binary values can be found in EscapeAnalysis.kt
-@Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.BINARY)
-internal annotation class PointsTo(vararg val onWhom: Int)
-
-
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
 internal annotation class TypedIntrinsic(val kind: String)
@@ -113,7 +100,7 @@ internal annotation class Independent
 @PublishedApi internal annotation class LeakDetectorCandidate
 
 /**
- * Indicates that given top level signleton object can be created in compile time and thus
+ * Indicates that given top level singleton object can be created in compile time and thus
  * members access doesn't need to use an init barrier and allow better optimizations for
  * field access, such as constant folding.
  */

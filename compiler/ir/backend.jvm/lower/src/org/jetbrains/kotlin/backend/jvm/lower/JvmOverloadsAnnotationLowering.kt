@@ -24,11 +24,13 @@ import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_OVERLOADS_FQ_NAME
 
-// TODO: `IrValueParameter.defaultValue` property does not track default values in super-parameters. See KT-28637.
-@PhaseDescription(
-    name = "JvmOverloadsAnnotation",
-    description = "Handle JvmOverloads annotations"
-)
+/**
+ * Handles JvmOverloads annotations.
+ *
+ * Note that [IrValueParameter.defaultValue] property does not track default values in super-parameters.
+ * See [KT-28637](youtrack.jetbrains.com/issue/KT-28637).
+ */
+@PhaseDescription(name = "JvmOverloadsAnnotation")
 internal class JvmOverloadsAnnotationLowering(val context: JvmBackendContext) : ClassLoweringPass {
 
     override fun lower(irClass: IrClass) {
@@ -157,7 +159,6 @@ internal class JvmOverloadsAnnotationLowering(val context: JvmBackendContext) : 
         oldFunction: IrFunction,
         numDefaultParametersToExpect: Int
     ): List<IrValueParameter> {
-        var parametersCopied = 0
         var defaultParametersCopied = 0
         val result = mutableListOf<IrValueParameter>()
         for (oldValueParameter in oldFunction.valueParameters) {
@@ -168,14 +169,13 @@ internal class JvmOverloadsAnnotationLowering(val context: JvmBackendContext) : 
                 result.add(
                     oldValueParameter.copyTo(
                         this,
-                        index = parametersCopied++,
                         defaultValue = null,
                         isCrossinline = oldValueParameter.isCrossinline,
                         isNoinline = oldValueParameter.isNoinline
                     )
                 )
             } else if (oldValueParameter.defaultValue == null) {
-                result.add(oldValueParameter.copyTo(this, index = parametersCopied++))
+                result.add(oldValueParameter.copyTo(this))
             }
         }
         return result

@@ -110,7 +110,6 @@ import org.jetbrains.org.objectweb.asm.commons.Method
  */
 @PhaseDescription(
     name = "Bridge",
-    description = "Generate bridges",
     prerequisite = [JvmInlineClassLowering::class, InheritedDefaultMethodsOnClassesLowering::class]
 )
 internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPass {
@@ -136,7 +135,7 @@ internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPas
             // in order to avoid signature clash with 'remove(int)' method in 'java.util.List'.
             // We should rewrite this static replacement as well ('remove' function itself is handled during special bridge processing).
             val remove = irClass.functions.find {
-                val original = context.inlineClassReplacements.originalFunctionForStaticReplacement[it]
+                val original = it.originalFunctionOfStaticInlineClassReplacement
                 original != null && MethodSignatureMapper.shouldBoxSingleValueParameterForSpecialCaseOfRemove(original)
             }
             if (remove != null) {
@@ -606,7 +605,7 @@ internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPas
     }.unwrapBlock(), bridge.returnType.upperBound)
 
     private fun getStructure(function: IrSimpleFunction): List<MemoizedMultiFieldValueClassReplacements.RemappedParameter>? {
-        val structure = context.multiFieldValueClassReplacements.bindingNewFunctionToParameterTemplateStructure[function] ?: return null
+        val structure = function.parameterTemplateStructureOfThisNewMfvcBidingFunction ?: return null
         require(structure.sumOf { it.valueParameters.size } == function.explicitParametersCount) {
             "Bad parameters structure: $structure"
         }

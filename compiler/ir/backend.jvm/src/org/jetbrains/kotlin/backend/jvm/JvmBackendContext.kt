@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.backend.jvm.caches.CollectionStubComputer
 import org.jetbrains.kotlin.backend.jvm.extensions.JvmIrDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.mapping.IrTypeMapper
 import org.jetbrains.kotlin.backend.jvm.mapping.MethodSignatureMapper
-import org.jetbrains.kotlin.codegen.inline.SMAP
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.JvmBackendConfig
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
@@ -66,11 +65,6 @@ class JvmBackendContext(
     // If this is not null, the JVM IR backend is invoked in the context of Evaluate Expression in the IDE.
     var evaluatorData: JvmEvaluatorData? = null
 
-    // If the JVM fqname of a class differs from what is implied by its parent, e.g. if it's a file class
-    // annotated with @JvmPackageName, the correct name is recorded here.
-    val classNameOverride: MutableMap<IrClass, JvmClassName>
-        get() = generatorExtensions.classNameOverride
-
     override val irFactory: IrFactory = IrFactoryImpl
 
     override val scriptMode: Boolean = false
@@ -97,14 +91,9 @@ class JvmBackendContext(
 
     lateinit var enumEntriesIntrinsicMappingsCache: EnumEntriesIntrinsicMappingsCache
 
-    // Store evaluated SMAP for anonymous classes. Used only with IR inliner.
-    val typeToCachedSMAP = mutableMapOf<Type, SMAP>()
-
     val isCompilingAgainstJdk8OrLater = state.jvmBackendClassResolver.resolveToClassDescriptors(
         Type.getObjectType("java/lang/invoke/LambdaMetafactory")
     ).isNotEmpty()
-
-    val isEnclosedInConstructor = ConcurrentHashMap.newKeySet<IrAttributeContainer>()
 
     val multifileFacadesToAdd = mutableMapOf<JvmClassName, MutableList<IrClass>>()
 
@@ -112,15 +101,11 @@ class JvmBackendContext(
 
     val bridgeLoweringCache = BridgeLoweringCache(this)
 
-    override var inVerbosePhase: Boolean = false // TODO: needs parallelizing
+    override var inVerbosePhase: Boolean = false
 
     override val configuration get() = state.configuration
 
     override val internalPackageFqn = FqName("kotlin.jvm")
-
-    val suspendFunctionOriginalToView = ConcurrentHashMap<IrSimpleFunction, IrSimpleFunction>()
-
-    val staticDefaultStubs = ConcurrentHashMap<IrSimpleFunctionSymbol, IrSimpleFunction>()
 
     val inlineClassReplacements = MemoizedInlineClassReplacements(config.functionsWithInlineClassReturnTypesMangled, irFactory, this)
 
@@ -162,67 +147,6 @@ class JvmBackendContext(
             +super.throwUninitializedPropertyAccessException(builder, name)
         }
 
-    override fun handleDeepCopy(
-        fileSymbolMap: MutableMap<IrFileSymbol, IrFileSymbol>,
-        classSymbolMap: MutableMap<IrClassSymbol, IrClassSymbol>,
-        functionSymbolMap: MutableMap<IrSimpleFunctionSymbol, IrSimpleFunctionSymbol>,
-    ) {
-        val oldClassesWithNameOverride = classNameOverride.keys.toList()
-        for (klass in oldClassesWithNameOverride) {
-            classSymbolMap[klass.symbol]?.let { newSymbol ->
-                classNameOverride[newSymbol.owner] = classNameOverride[klass]!!
-            }
-        }
-        for (multifileFacade in multifileFacadesToAdd) {
-            val oldPartClasses = multifileFacade.value
-            val newPartClasses = oldPartClasses.map { classSymbolMap[it.symbol]?.owner ?: it }
-            multifileFacade.setValue(newPartClasses.toMutableList())
-        }
-
-        for ((staticReplacement, original) in multiFieldValueClassReplacements.originalFunctionForStaticReplacement) {
-            if (staticReplacement !is IrSimpleFunction) continue
-            val newOriginal = functionSymbolMap[original.symbol]?.owner ?: continue
-            val newStaticReplacement = multiFieldValueClassReplacements.getReplacementFunction(newOriginal) ?: continue
-            functionSymbolMap[staticReplacement.symbol] = newStaticReplacement.symbol
-        }
-
-        for ((methodReplacement, original) in multiFieldValueClassReplacements.originalFunctionForMethodReplacement) {
-            if (methodReplacement !is IrSimpleFunction) continue
-            val newOriginal = functionSymbolMap[original.symbol]?.owner ?: continue
-            val newMethodReplacement = multiFieldValueClassReplacements.getReplacementFunction(newOriginal) ?: continue
-            functionSymbolMap[methodReplacement.symbol] = newMethodReplacement.symbol
-        }
-
-        for ((staticReplacement, original) in inlineClassReplacements.originalFunctionForStaticReplacement) {
-            if (staticReplacement !is IrSimpleFunction) continue
-            val newOriginal = functionSymbolMap[original.symbol]?.owner ?: continue
-            val newStaticReplacement = inlineClassReplacements.getReplacementFunction(newOriginal) ?: continue
-            functionSymbolMap[staticReplacement.symbol] = newStaticReplacement.symbol
-        }
-
-        for ((methodReplacement, original) in inlineClassReplacements.originalFunctionForMethodReplacement) {
-            if (methodReplacement !is IrSimpleFunction) continue
-            val newOriginal = functionSymbolMap[original.symbol]?.owner ?: continue
-            val newMethodReplacement = inlineClassReplacements.getReplacementFunction(newOriginal) ?: continue
-            functionSymbolMap[methodReplacement.symbol] = newMethodReplacement.symbol
-        }
-
-        for ((original, suspendView) in suspendFunctionOriginalToView) {
-            val newOriginal = functionSymbolMap[original.symbol]?.owner ?: continue
-            val newSuspendView = suspendFunctionOriginalToView[newOriginal] ?: continue
-            functionSymbolMap[suspendView.symbol] = newSuspendView.symbol
-        }
-
-        for ((nonStaticDefaultSymbol, staticDefault) in staticDefaultStubs) {
-            val staticDefaultSymbol = staticDefault.symbol
-            val newNonStaticDefaultSymbol = functionSymbolMap[nonStaticDefaultSymbol] ?: continue
-            val newStaticDefaultSymbol = staticDefaultStubs[newNonStaticDefaultSymbol]?.symbol ?: continue
-            functionSymbolMap[staticDefaultSymbol] = newStaticDefaultSymbol
-        }
-
-        super.handleDeepCopy(fileSymbolMap, classSymbolMap, functionSymbolMap)
-    }
-
     override val preferJavaLikeCounterLoop: Boolean
         get() = true
 
@@ -254,7 +178,7 @@ class JvmBackendContext(
             }
             oldFunction.explicitParameters.zip(newFunction.explicitParameters).toMap()
         }
-        val oldRemappedParameters = multiFieldValueClassReplacements.bindingNewFunctionToParameterTemplateStructure[oldFunction] ?: return
+        val oldRemappedParameters = oldFunction.parameterTemplateStructureOfThisNewMfvcBidingFunction ?: return
         val newRemapsFromOld = oldRemappedParameters.mapNotNull { oldRemapping ->
             when (oldRemapping) {
                 is RegularMapping -> parametersMapping[oldRemapping.valueParameter]?.let(::RegularMapping)
@@ -270,6 +194,6 @@ class JvmBackendContext(
         }
         val remappedParameters = newRemapsFromOld.flatMap { remap -> remap.valueParameters.map { it to remap } }.toMap()
         val newBinding = newFunction.explicitParameters.map { remappedParameters[it] ?: RegularMapping(it) }.distinct()
-        multiFieldValueClassReplacements.bindingNewFunctionToParameterTemplateStructure[newFunction] = newBinding
+        newFunction.parameterTemplateStructureOfThisNewMfvcBidingFunction = newBinding
     }
 }

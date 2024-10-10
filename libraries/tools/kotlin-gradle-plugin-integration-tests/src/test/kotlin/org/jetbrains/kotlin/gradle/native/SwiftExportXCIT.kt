@@ -25,13 +25,21 @@ class SwiftExportXCIT : KGPBaseTest() {
                 boot()
             }
 
-            nativeProject("simpleSwiftExport", gradleVersion) {
-                projectPath.enableSwiftExport()
-
+            nativeProject(
+                "simpleSwiftExport",
+                gradleVersion,
+                buildOptions = defaultBuildOptions.copy(
+                    configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED,
+                    nativeOptions = BuildOptions.NativeOptions().copy(
+                        swiftExportEnabled = true,
+                    )
+                )
+            ) {
                 buildXcodeProject(
                     xcodeproj = projectPath.resolve("iosApp/iosApp.xcodeproj"),
                     destination = "platform=iOS Simulator,id=${simulator.udid}",
-                    buildMode = XcodeBuildMode.TEST
+                    action = XcodeBuildAction.Test,
+                    appendToProperties = { "kotlin.experimental.swift-export.enabled=true" }
                 )
             }
         }

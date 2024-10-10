@@ -7,9 +7,8 @@
 
 package org.jetbrains.kotlin.gradle.dependencyResolutionTests.tcs
 
-import mockProjectStructureMetadataFileForProject
+import org.jetbrains.kotlin.gradle.util.mockGenerateProjectStructureMetadataTaskOutputs
 import org.gradle.api.Project
-import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.jetbrains.kotlin.gradle.dependencyResolutionTests.mavenCentralCacheRedirector
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
@@ -23,9 +22,6 @@ import org.jetbrains.kotlin.gradle.internal.dsl.KotlinMultiplatformSourceSetConv
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 import org.jetbrains.kotlin.gradle.plugin.ide.dependencyResolvers.IdeJvmAndAndroidPlatformBinaryDependencyResolver
 import org.jetbrains.kotlin.gradle.plugin.ide.kotlinIdeMultiplatformImport
-import org.jetbrains.kotlin.gradle.plugin.mpp.kotlinProjectStructureMetadata
-import org.jetbrains.kotlin.gradle.plugin.mpp.toJson
-import org.jetbrains.kotlin.gradle.targets.metadata.locateOrRegisterGenerateProjectStructureMetadataTask
 import org.jetbrains.kotlin.gradle.util.*
 import org.jetbrains.kotlin.gradle.utils.androidExtension
 import kotlin.test.BeforeTest
@@ -106,7 +102,7 @@ class IdeJvmAndAndroidDependencyResolutionTest {
         producer.evaluate()
         consumer.evaluate()
 
-        mockProjectStructureMetadataFileForProject(producer)
+        producer.mockGenerateProjectStructureMetadataTaskOutputs()
 
         root.allprojects { project ->
             project.repositories.mavenLocal()
@@ -199,8 +195,8 @@ class IdeJvmAndAndroidDependencyResolutionTest {
         a.evaluate()
         b.evaluate()
 
-        mockProjectStructureMetadataFileForProject(b)
-        mockProjectStructureMetadataFileForProject(a)
+        b.mockGenerateProjectStructureMetadataTaskOutputs()
+        a.mockGenerateProjectStructureMetadataTaskOutputs()
 
         a.kotlinIdeMultiplatformImport.resolveDependencies("jvmAndAndroidTest").assertMatches(
             friendSourceDependency(":a/commonMain"),
@@ -229,7 +225,7 @@ class IdeJvmAndAndroidDependencyResolutionTest {
         producer.evaluate()
         consumer.evaluate()
 
-        mockProjectStructureMetadataFileForProject(producer)
+        producer.mockGenerateProjectStructureMetadataTaskOutputs()
 
         consumer.kotlinIdeMultiplatformImport.resolveDependencies("commonMain").assertMatches(
             regularSourceDependency(":producer/commonMain"),
@@ -305,5 +301,28 @@ class IdeJvmAndAndroidDependencyResolutionTest {
         )
 
         project.assertBinaryDependencies("commonTest", stdlibDependencies)
+    }
+
+    @Test
+    fun `KT-71444 Android and JVM fails to transitively resolve kotlin-stdlib-common when it hasn't explicit version set`() {
+        val project = buildProject { configureAndroidAndMultiplatform(enableDefaultStdlib = true) }
+        val kotlin = project.multiplatformExtension
+        kotlin.sourceSets.getByName("commonMain").dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
+        }
+
+        project.evaluate()
+
+        val kgpVersion = project.getKotlinPluginVersion()
+        // This list is exhaustive. We don't expect to see kotlin-stdlib-common as it should be replaced by kotlin-stdlib
+        val jvmAndAndroidDependencies = listOf(
+            binaryCoordinates("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.2"),
+            binaryCoordinates("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.7.2"),
+            binaryCoordinates("org.jetbrains.kotlin:kotlin-stdlib:$kgpVersion"),
+            binaryCoordinates("org.jetbrains:annotations:13.0"),
+        )
+
+        project.assertBinaryDependencies("jvmAndAndroidMain", jvmAndAndroidDependencies)
+        project.assertBinaryDependencies("jvmAndAndroidTest", jvmAndAndroidDependencies)
     }
 }

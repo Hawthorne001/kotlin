@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.test.TestMetadata
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
@@ -18,7 +19,6 @@ import java.nio.file.Path
 
 @DisplayName("Configuration cache")
 class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
-
     @DisplayName("works in simple Kotlin project")
     @GradleTest
     @JvmGradlePluginTests
@@ -68,7 +68,10 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @GradleTest
     fun testMppWithMavenPublish(gradleVersion: GradleVersion) {
         project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
-            val publishedTargets = listOf("kotlinMultiplatform", "jvm6", "nodeJs", "linux64", "mingw64")
+            val publishedTargets = mutableListOf("kotlinMultiplatform", "jvm6", "nodeJs", "linux64", "mingw64")
+            if (patchKmpSampleLibForIsolatedProjects()) {
+                publishedTargets.remove("nodeJs")
+            }
             testConfigurationCacheOf(
                 taskNames = publishedTargets
                     .map { ":publish${it.replaceFirstChar(Char::uppercaseChar)}PublicationToLocalRepoRepository" }
@@ -84,6 +87,7 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @TestMetadata("new-mpp-lib-and-app/sample-lib")
     fun testAllMetadataJarWithConfigurationCache(gradleVersion: GradleVersion) {
         project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
+            patchKmpSampleLibForIsolatedProjects()
             testConfigurationCacheOf(":allMetadataJar")
         }
     }
@@ -93,21 +97,25 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @GradleTest
     fun testCommonizer(gradleVersion: GradleVersion) {
         project("native-configuration-cache", gradleVersion) {
-            build(":lib:cleanNativeDistributionCommonization")
+            val (commonizeNativeDistributionTask, cleanNativeDistributionCommonizationTask) = if (kmpIsolatedProjectsSupportEnabled) {
+                ":lib:commonizeNativeDistribution" to ":lib:cleanNativeDistributionCommonization"
+            } else {
+                ":commonizeNativeDistribution" to ":cleanNativeDistributionCommonization"
+            }
 
             build(":lib:compileCommonMainKotlinMetadata") {
-                assertTasksExecuted(":lib:commonizeNativeDistribution")
+                assertTasksExecuted(commonizeNativeDistributionTask)
                 assertTasksExecuted(":lib:compileCommonMainKotlinMetadata")
                 assertConfigurationCacheStored()
             }
 
-            build("clean", ":lib:cleanNativeDistributionCommonization") {
-                assertTasksExecuted(":lib:cleanNativeDistributionCommonization")
+            build("clean", cleanNativeDistributionCommonizationTask) {
+                assertTasksExecuted(cleanNativeDistributionCommonizationTask)
                 assertConfigurationCacheStored()
             }
 
             build(":lib:compileCommonMainKotlinMetadata") {
-                assertTasksExecuted(":lib:commonizeNativeDistribution")
+                assertTasksExecuted(commonizeNativeDistributionTask)
                 assertTasksExecuted(":lib:compileCommonMainKotlinMetadata")
                 assertConfigurationCacheReused()
             }
@@ -340,12 +348,46 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
             }
         }
     }
+
+    @DisplayName("with native dependencies downloader")
+    @NativeGradlePluginTests
+    @GradleTest
+    @GradleTestVersions(minVersion = TestVersions.Gradle.MAX_SUPPORTED)
+    @Disabled("[KT-66423](http://youtrack.jetbrains.com/issue/KT-66423): ignore test until source-value changes are made")
+    fun testNativeBundleDownloadForConfigurationCache(gradleVersion: GradleVersion, @TempDir konanDirTemp: Path) {
+        nativeProject(
+            "native-simple-project", gradleVersion, buildOptions = defaultBuildOptions.copy(
+                nativeOptions = super.defaultBuildOptions.nativeOptions.copy(
+                    version = TestVersions.Kotlin.STABLE_RELEASE,
+                    distributionDownloadFromMaven = true,
+                ),
+                konanDataDir = konanDirTemp
+            )
+        ) {
+            testConfigurationCacheOf(":assemble")
+        }
+    }
 }
+
+/** @return true when the patch was applied */
+private fun TestProject.patchKmpSampleLibForIsolatedProjects() =
+    if (kmpIsolatedProjectsSupportEnabled) {
+        // TODO: KT-70569 add support for JS/WASM JS. The current problem with buildModulesInfo for Incremental Compilation
+        buildGradle.replaceText(
+            "shouldBeJs = true",
+            "shouldBeJs = false",
+        )
+        true
+    } else {
+        false
+    }
 
 abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
 
     override val defaultBuildOptions =
-        super.defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
+        super.defaultBuildOptions
+            .copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
+            .autoIsolatedProjects()
 
     protected fun TestProject.testConfigurationCacheOf(
         vararg taskNames: String,

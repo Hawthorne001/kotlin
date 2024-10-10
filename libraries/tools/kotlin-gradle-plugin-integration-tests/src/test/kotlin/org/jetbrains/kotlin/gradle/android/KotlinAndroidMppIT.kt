@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.android
 
+import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
@@ -393,7 +394,9 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion)
+                .disableConfigurationCache_KT70416()
+                .disableIsolatedProjectsButEnableKmpSupportForMaxGradle(gradleVersion),
             buildJdk = jdkVersion.location
         ) {
             // Convert the 'app' project to a library, publish two flavors without metadata,
@@ -505,7 +508,9 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                .disableIsolatedProjectsButEnableKmpSupportForMaxGradle(gradleVersion),
             buildJdk = jdkVersion.location
         ) {
             settingsGradle.replaceText("include ':app', ':lib'", "include ':lib'")
@@ -524,12 +529,18 @@ class KotlinAndroidMppIT : KGPBaseTest() {
                     .resolve("lib/build/publications/androidLibRelease/pom-default.xml")
                     .readText()
                     .replace("""\s+""".toRegex(), "")
-                assertContains(
-                    pomText,
-                    // TODO: When KT-69974 is fixed replace it with this
-                    // ...<artifactId>libFromIncluded-android</artifactId>...
-                    """<groupId>com.example</groupId><artifactId>libFromIncluded</artifactId><version>1.0</version>"""
-                )
+
+                if (kmpIsolatedProjectsSupportEnabled) {
+                    assertContains(
+                        pomText,
+                        """<groupId>com.example</groupId><artifactId>libFromIncluded-androidlib</artifactId><version>1.0</version>"""
+                    )
+                } else {
+                    assertContains(
+                        pomText,
+                        """<groupId>com.example</groupId><artifactId>libFromIncluded</artifactId><version>1.0</version>"""
+                    )
+                }
             }
         }
     }
@@ -949,11 +960,17 @@ class KotlinAndroidMppIT : KGPBaseTest() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build("tasks") {
-                val warnings = output.lines().filter { it.startsWith("w:") }.toSet()
+            val assertions: BuildResult.() -> Unit = {
+                val errors = output.lines().filter { it.startsWith("e:") }.toSet()
                 assert(
-                    warnings.any { warning -> warning.contains("androidTarget") }
+                    errors.any { error -> error.contains("androidTarget") }
                 )
+            }
+
+            if (buildGradleKts.exists()) {
+                buildAndFail("tasks", assertions = assertions)
+            } else {
+                build("tasks", assertions = assertions)
             }
         }
     }
@@ -999,7 +1016,7 @@ class KotlinAndroidMppIT : KGPBaseTest() {
                         }
                 """.trimIndent()
             )
-            build("assemble")
+            build("assemble", "-Pmobile.multiplatform.useIosShortcut=false")
         }
     }
 

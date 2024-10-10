@@ -126,17 +126,6 @@ class K2NativeCompilerArguments : CommonKlibBasedCompilerArguments() {
     )
     var produce: String? = null
 
-    // TODO: remove after 2.0, KT-61098
-    @Argument(
-        value = "-repo",
-        shortName = "-r",
-        valueDescription = "<path>",
-        description = "Library search path.\n" +
-                "Note: This option is deprecated and will be removed in one of the future releases.\n" +
-                "Please use library paths instead of library names in all compiler options such as '-library' ('-l')."
-    )
-    var repositories: Array<String>? = null
-
     @Argument(value = "-target", valueDescription = "<target>", description = "Set the hardware target.")
     var target: String? = null
 
@@ -292,6 +281,13 @@ The default value is 1."""
 
     @Argument(value="-Xpurge-user-libs", deprecatedName = "--purge_user_libs", description = "Don't link unused libraries even if explicitly specified.")
     var purgeUserLibs: Boolean = false
+
+    @Argument(
+        value = "-Xwrite-dependencies-of-produced-klib-to",
+        valueDescription = "<path>",
+        description = "Write file containing the paths of dependencies used during klib compilation to the provided path"
+    )
+    var writeDependenciesOfProducedKlibTo: String? = null
 
     @Argument(value = "-Xruntime", deprecatedName = "--runtime", valueDescription = "<path>", description = "Override the standard 'runtime.bc' location.")
     var runtimeFile: String? = null

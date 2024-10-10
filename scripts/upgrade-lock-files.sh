@@ -34,11 +34,11 @@ npm upgrade
 cd $root_dir
 echo "End upgrade 'libraries/kotlin.test/js/it/package-lock.json'"
 
-# Upgrade libraries/tools/kotlin-test-js-runner/package-lock.json
+# Upgrade wasm/wasm.debug.browsers/package-lock.json
 
-echo "Start upgrade 'libraries/tools/kotlin-test-js-runner/package-lock.json'"
-cd ./libraries/tools/kotlin-test-js-runner
+echo "Start upgrade 'wasm/wasm.debug.browsers/package-lock.json'"
+cd ./wasm/wasm.debug.browsers
 npm upgrade
 
 cd $root_dir
-echo "End upgrade 'libraries/tools/kotlin-test-js-runner/package-lock.json'"
+echo "End upgrade 'wasm/wasm.debug.browsers/package-lock.json'"

@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the LICENSE file.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 @file:OptIn(ExperimentalForeignApi::class)
 
@@ -11,6 +11,7 @@ import kotlin.native.internal.ExportForCppRuntime
 import kotlin.native.internal.ExportTypeInfo
 import kotlin.native.internal.GCUnsafeCall
 import kotlin.native.internal.NativePtrArray
+import kotlin.native.internal.escapeAnalysis.Escapes
 import kotlinx.cinterop.ExperimentalForeignApi
 
 /**
@@ -20,13 +21,17 @@ import kotlinx.cinterop.ExperimentalForeignApi
  * @param cause the cause of this throwable.
  */
 @ExportTypeInfo("theThrowableTypeInfo")
-public open class Throwable(public open val message: String?, public open val cause: Throwable?) {
+public actual open class Throwable
+public actual constructor(
+        public actual open val message: String?,
+        public actual open val cause: Throwable?
+) {
 
-    public constructor(message: String?) : this(message, null)
+    public actual constructor(message: String?) : this(message, null)
 
-    public constructor(cause: Throwable?) : this(cause?.toString(), cause)
+    public actual constructor(cause: Throwable?) : this(cause?.toString(), cause)
 
-    public constructor() : this(null, null)
+    public actual constructor() : this(null, null)
 
     @get:ExportForCppRuntime("Kotlin_Throwable_getStackTrace")
     private val stackTrace: NativePtrArray = getCurrentStackTrace()
@@ -146,9 +151,11 @@ public open class Throwable(public open val message: String?, public open val ca
 }
 
 @GCUnsafeCall("Kotlin_getCurrentStackTrace")
+@Escapes.Nothing
 private external fun getCurrentStackTrace(): NativePtrArray
 
 @GCUnsafeCall("Kotlin_getStackTraceStrings")
+@Escapes.Nothing
 private external fun getStackTraceStrings(stackTrace: NativePtrArray): Array<String>
 
 /**

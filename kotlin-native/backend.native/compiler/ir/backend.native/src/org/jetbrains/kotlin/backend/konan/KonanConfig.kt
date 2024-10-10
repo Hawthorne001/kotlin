@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.backend.konan.objcexport.ObjCEntryPoints
 import org.jetbrains.kotlin.backend.konan.objcexport.readObjCEntryPoints
 import org.jetbrains.kotlin.backend.konan.serialization.KonanUserVisibleIrModulesSupport
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
-import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -295,8 +294,11 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     internal val purgeUserLibs: Boolean
         get() = configuration.getBoolean(KonanConfigKeys.PURGE_USER_LIBS)
 
+    internal val writeDependenciesOfProducedKlibTo
+        get() = configuration.get(KonanConfigKeys.WRITE_DEPENDENCIES_OF_PRODUCED_KLIB_TO)
+
     internal val resolve = KonanLibrariesResolveSupport(
-            configuration, target, distribution, resolveManifestDependenciesLenient = metadataKlib
+            configuration, target, distribution, resolveManifestDependenciesLenient = true
     )
 
     val resolvedLibraries get() = resolve.resolvedLibraries
@@ -358,7 +360,12 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     }
 
     val swiftExport by lazy {
-        configuration.get(BinaryOptions.swiftExport) ?: false
+        configuration.get(BinaryOptions.swiftExport)?.let {
+            if (it && !target.supportsObjcInterop()) {
+                configuration.report(CompilerMessageSeverity.STRONG_WARNING, "Swift Export cannot be enabled on $target that does not have objc interop")
+                false
+            } else it
+        } ?: false
     }
 
     internal val runtimeNativeLibraries: List<String> = mutableListOf<String>().apply {
@@ -624,12 +631,6 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     internal val writeSerializedDependencies: String? by lazy {
         configuration.get(KonanConfigKeys.SAVE_DEPENDENCIES_PATH)
     }
-
-    val infoArgsOnly = (configuration.kotlinSourceRoots.isEmpty()
-            && configuration[KonanConfigKeys.INCLUDED_LIBRARIES].isNullOrEmpty()
-            && configuration[KonanConfigKeys.EXPORTED_LIBRARIES].isNullOrEmpty()
-            && libraryToCache == null && compileFromBitcode.isNullOrEmpty())
-
 
     /**
      * Directory to store LLVM IR from -Xsave-llvm-ir-after.

@@ -80,7 +80,7 @@ void ObjHeader::destroyMetaObject(ObjHeader* object) {
 }
 
 extern "C" MemoryState* InitMemory() {
-    mm::GlobalData::waitInitialized();
+    mm::waitGlobalDataInitialized();
     return mm::ToMemoryState(mm::ThreadRegistry::Instance().RegisterCurrentThread());
 }
 
@@ -242,6 +242,8 @@ extern "C" void Kotlin_native_internal_GC_schedule(ObjHeader*) {
 }
 
 extern "C" RUNTIME_NOTHROW bool Kotlin_native_runtime_Debugging_dumpMemory(ObjHeader*, int fd) {
+    auto mainGCLock = mm::GlobalData::Instance().gc().gcLock();
+
     auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
     threadData->suspensionData().requestThreadsSuspension("Memory dump");
     CallsCheckerIgnoreGuard guard;

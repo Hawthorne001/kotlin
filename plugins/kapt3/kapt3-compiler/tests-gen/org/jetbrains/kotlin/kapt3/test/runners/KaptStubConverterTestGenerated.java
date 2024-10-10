@@ -132,6 +132,18 @@ public class KaptStubConverterTestGenerated extends AbstractKaptStubConverterTes
   }
 
   @Test
+  @TestMetadata("dataClassWithCustomProperty.kt")
+  public void testDataClassWithCustomProperty() {
+    runTest("plugins/kapt3/kapt3-compiler/testData/converter/dataClassWithCustomProperty.kt");
+  }
+
+  @Test
+  @TestMetadata("dataClassWithUnresolvedComponentType.kt")
+  public void testDataClassWithUnresolvedComponentType() {
+    runTest("plugins/kapt3/kapt3-compiler/testData/converter/dataClassWithUnresolvedComponentType.kt");
+  }
+
+  @Test
   @TestMetadata("defaultImpls.kt")
   public void testDefaultImpls() {
     runTest("plugins/kapt3/kapt3-compiler/testData/converter/defaultImpls.kt");
@@ -300,6 +312,12 @@ public class KaptStubConverterTestGenerated extends AbstractKaptStubConverterTes
   }
 
   @Test
+  @TestMetadata("importNestedClass.kt")
+  public void testImportNestedClass() {
+    runTest("plugins/kapt3/kapt3-compiler/testData/converter/importNestedClass.kt");
+  }
+
+  @Test
   @TestMetadata("importsForErrorTypes.kt")
   public void testImportsForErrorTypes() {
     runTest("plugins/kapt3/kapt3-compiler/testData/converter/importsForErrorTypes.kt");
@@ -333,6 +351,12 @@ public class KaptStubConverterTestGenerated extends AbstractKaptStubConverterTes
   @TestMetadata("inlineClasses.kt")
   public void testInlineClasses() {
     runTest("plugins/kapt3/kapt3-compiler/testData/converter/inlineClasses.kt");
+  }
+
+  @Test
+  @TestMetadata("inlineReified.kt")
+  public void testInlineReified() {
+    runTest("plugins/kapt3/kapt3-compiler/testData/converter/inlineReified.kt");
   }
 
   @Test
@@ -633,6 +657,12 @@ public class KaptStubConverterTestGenerated extends AbstractKaptStubConverterTes
   @TestMetadata("nestedClassesNonRootPackage.kt")
   public void testNestedClassesNonRootPackage() {
     runTest("plugins/kapt3/kapt3-compiler/testData/converter/nestedClassesNonRootPackage.kt");
+  }
+
+  @Test
+  @TestMetadata("nonConstProperties.kt")
+  public void testNonConstProperties() {
+    runTest("plugins/kapt3/kapt3-compiler/testData/converter/nonConstProperties.kt");
   }
 
   @Test

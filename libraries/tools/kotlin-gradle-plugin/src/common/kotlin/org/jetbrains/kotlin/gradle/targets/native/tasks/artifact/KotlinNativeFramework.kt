@@ -12,8 +12,9 @@ import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.chooseKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
@@ -111,7 +112,8 @@ internal fun KotlinNativeArtifact.registerLinkFrameworkTask(
         listOf(target, kind.compilerOutputKind)
     ) { task ->
         task.description = "Assemble ${kind.description} '$name' for a target '${target.name}'."
-        task.enabled = target.enabledOnCurrentHostForBinariesCompilation()
+        val enabledOnCurrentHost = target.enabledOnCurrentHostForBinariesCompilation()
+        task.enabled = enabledOnCurrentHost
         task.baseName.set(name)
         task.destinationDir.set(destinationDir)
         task.optimized.set(buildType.optimized)
@@ -123,9 +125,10 @@ internal fun KotlinNativeArtifact.registerLinkFrameworkTask(
         task.exportLibraries.setFrom(project.configurations.getByName(exportConfigurationName))
         @Suppress("DEPRECATION")
         task.kotlinOptions(kotlinOptionsFn)
-        task.kotlinNativeProvider.set(project.provider {
-            KotlinNativeProvider(project, task.konanTarget, task.kotlinNativeBundleBuildService)
-        })
+        task.kotlinNativeProvider.set(task.chooseKotlinNativeProvider(enabledOnCurrentHost, task.konanTarget))
+        task.kotlinCompilerArgumentsLogLevel
+            .value(project.kotlinPropertiesProvider.kotlinCompilerArgumentsLogLevel)
+            .finalizeValueOnRead()
     }
     project.tasks.named(LifecycleBasePlugin.ASSEMBLE_TASK_NAME).dependsOn(resultTask)
     return resultTask

@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
 import org.jetbrains.kotlin.gradle.internal.ClassLoadersCachingBuildService
+import org.jetbrains.kotlin.gradle.plugin.statistics.BuildFusService
 import org.jetbrains.kotlin.gradle.targets.native.KonanPropertiesBuildService
 import org.jetbrains.kotlin.gradle.utils.listProperty
 import org.jetbrains.kotlin.gradle.utils.property
@@ -20,7 +21,7 @@ import java.io.File
 internal fun ObjectFactory.KotlinNativeCInteropRunner(
     metricsReporter: Provider<BuildMetricsReporter<GradleBuildTime, GradleBuildPerformanceMetric>>,
     classLoadersCachingBuildService: Provider<ClassLoadersCachingBuildService>,
-    kotlinNativeCompilerJar: Provider<File>,
+    isUseEmbeddableCompilerJar: Provider<Boolean>,
     actualNativeHomeDirectory: Provider<File>,
     jvmArgs: Provider<List<String>>,
     useXcodeMessageStyle: Provider<Boolean>,
@@ -28,11 +29,12 @@ internal fun ObjectFactory.KotlinNativeCInteropRunner(
 ): KotlinNativeToolRunner = newInstance(
     metricsReporter,
     classLoadersCachingBuildService,
-    kotlinToolSpec(kotlinNativeCompilerJar, actualNativeHomeDirectory, jvmArgs, useXcodeMessageStyle, konanPropertiesBuildService)
+    kotlinToolSpec(isUseEmbeddableCompilerJar, actualNativeHomeDirectory, jvmArgs, useXcodeMessageStyle, konanPropertiesBuildService),
+    property(BuildFusService::class.java)
 )
 
 private fun ObjectFactory.kotlinToolSpec(
-    kotlinNativeCompilerJar: Provider<File>,
+    isUseEmbeddableCompilerJar: Provider<Boolean>,
     actualNativeHomeDirectory: Provider<File>,
     jvmArgs: Provider<List<String>>,
     useXcodeMessageStyle: Provider<Boolean>,
@@ -40,9 +42,9 @@ private fun ObjectFactory.kotlinToolSpec(
 ) = KotlinNativeToolRunner.ToolSpec(
     displayName = property("cinterop"),
     optionalToolName = property("cinterop"),
-    mainClass = property("org.jetbrains.kotlin.cli.utilities.MainKt"),
+    mainClass = nativeMainClass,
     daemonEntryPoint = useXcodeMessageStyle.nativeDaemonEntryPoint(),
-    classpath = nativeCompilerClasspath(kotlinNativeCompilerJar, actualNativeHomeDirectory),
+    classpath = nativeCompilerClasspath(actualNativeHomeDirectory, isUseEmbeddableCompilerJar),
     jvmArgs = listProperty<String>().value(jvmArgs),
     shouldPassArgumentsViaArgFile = property(false),
     systemProperties = nativeExecSystemProperties(useXcodeMessageStyle),

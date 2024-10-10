@@ -25,7 +25,7 @@ import org.jetbrains.kotlin.objcexport.extras.requiresForwardDeclaration
 internal fun ObjCExportContext.translateToObjCType(type: KaType, typeBridge: TypeBridge): ObjCType {
     return when (typeBridge) {
         is ReferenceBridge -> translateToObjCReferenceType(type)
-        is BlockPointerBridge -> translateToObjCFunctionType(type, typeBridge)
+        is BlockPointerBridge -> translateToObjCFunctionType(type, typeBridge.returnsVoid)
         is ValueTypeBridge -> when (typeBridge.objCValueType) {
             ObjCValueType.BOOL -> ObjCPrimitiveType.BOOL
             ObjCValueType.UNICHAR -> ObjCPrimitiveType.unichar
@@ -59,7 +59,9 @@ internal fun ObjCExportContext.translateToObjCReferenceType(type: KaType): ObjCR
 @OptIn(KaExperimentalApi::class)
 internal fun ObjCExportContext.mapToReferenceTypeIgnoringNullability(type: KaType): ObjCNonNullReferenceType {
     with(analysisSession) {
+
         val fullyExpandedType = type.fullyExpandedType
+
         val classId = (fullyExpandedType as? KaClassType)?.classId
 
         if (type.isError) {
@@ -127,26 +129,55 @@ internal fun ObjCExportContext.mapToReferenceTypeIgnoringNullability(type: KaTyp
             }
         }
 
+        /**
+         * Most [KaTypeParameterType] should be translated as generics, but there are set of 3 exceptions (see below)
+         */
         if (fullyExpandedType is KaTypeParameterType) {
+
             val definingSymbol = fullyExpandedType.symbol.containingDeclaration
-
-            if (definingSymbol is KaCallableSymbol) {
-                val upperBound = definingSymbol.typeParameters.firstOrNull()?.upperBounds?.firstOrNull()
-                if (upperBound != null) {
-                    return mapToReferenceTypeIgnoringNullability(upperBound)
-                } else {
-                    return ObjCIdType
-                }
-
-            }
+            val isLocal = type.isFromLocalSymbol
 
             if (definingSymbol is KaClassSymbol && definingSymbol.classKind == KaClassKind.INTERFACE) {
+                /**
+                 * 1. When type parameter defined in interface
+                 *
+                 * interface Foo<Bar> {
+                 *   val bar: Bar
+                 * }
+                 */
                 return ObjCIdType
+            } else if (definingSymbol is KaCallableSymbol) {
+                /**
+                 * 2. When type parameter defined in callable it should be translated either as `id` or upper bound
+                 *
+                 * class Foo {
+                 *   fun <T> bar(t: T)
+                 * }
+                 */
+                val callableUpperBound = definingSymbol.getUpperBoundOfCallableSymbol(fullyExpandedType)
+                return if (callableUpperBound == null) {
+                    ObjCIdType
+                } else {
+                    mapToReferenceTypeIgnoringNullability(callableUpperBound)
+                }
+            } else {
+                /**
+                 * 3. Objective-C doesn't support upper bounds, so we try to find most proper one
+                 * 3.1 See detailed case doc at [ObjCExportContext.classifierContext]
+                 * 3.2 When type parameter symbol is local
+                 */
+                val upperBound = if (definingSymbol != null && classifierContext != null && definingSymbol != classifierContext) {
+                    findUpperBoundMatchingTypeParameter(definingSymbol as KaClassSymbol, fullyExpandedType)
+                } else if (isLocal) {
+                    findUpperBoundMatchingTypeParameter(definingSymbol as KaClassSymbol, fullyExpandedType)
+                } else null
+
+                return if (upperBound != null) {
+                    mapToReferenceTypeIgnoringNullability(upperBound)
+                } else {
+                    ObjCGenericTypeParameterUsage(fullyExpandedType.name.asString().toValidObjCSwiftIdentifier())
+                }
             }
-            /*
-            Todo: K1 has some name mangling logic here?
-            */
-            return ObjCGenericTypeParameterUsage(fullyExpandedType.name.asString().toValidObjCSwiftIdentifier())
         }
 
         /* We cannot translate this, lets try to be lenient and emit the error type? */
@@ -174,17 +205,16 @@ internal fun ObjCExportContext.translateTypeArgumentsToObjC(type: KaType): List<
         when (typeArgument) {
             is KaStarTypeProjection -> ObjCIdType
             is KaTypeArgumentWithVariance -> {
-                val isMarkedNullable = with(analysisSession) { typeArgument.type.isMarkedNullable }
+                val isNullable = with(analysisSession) { typeArgument.type.canBeNull }
                 /*
                 Kotlin `null` keys and values are represented as `NSNull` singleton in collections
                 */
-                if (isKnownCollectionType && isMarkedNullable) return@map ObjCIdType
+                if (isKnownCollectionType && isNullable) return@map ObjCIdType
                 mapToReferenceTypeIgnoringNullability(typeArgument.type)
             }
         }
     }
 }
-
 
 /**
  * Types to be "hidden" during mapping, i.e., represented as `id`.
@@ -213,3 +243,58 @@ private val collectionClassIds = setOf(
     StandardClassIds.Set, StandardClassIds.MutableSet,
     StandardClassIds.Map, StandardClassIds.MutableMap
 )
+
+/**
+ * 1. We try to find upper bound from type parameters
+ * ```kotlin
+ * fun <A> foo(a: A)
+ * ```
+ * 2. If upper bound is another [KaTypeParameterType] we traverse through all symbol references and find upper bound
+ * ```kotlin
+ * class Foo<A> {
+ *   fun <B : A> foo(a: B)
+ * }
+ * ```
+ */
+@OptIn(KaExperimentalApi::class)
+private fun KaCallableSymbol.getUpperBoundOfCallableSymbol(type: KaTypeParameterType): KaType? {
+
+    fun KaTypeParameterType.traverseParentUpperBounds(): KaType? {
+        val bound = symbol.upperBound ?: return null
+        return if (bound is KaTypeParameterType) {
+            bound.traverseParentUpperBounds()
+        } else bound
+    }
+
+    val bound = typeParameters.findAssociatedTypeParameterUpperBound(type)
+    return if (bound is KaTypeParameterType) bound.traverseParentUpperBounds() else bound
+}
+
+private val KaType.isFromLocalSymbol: Boolean
+    get() {
+        return if (this is KaTypeParameterType) this.symbol.isLocal else this.symbol?.isLocal ?: false
+    }
+
+@OptIn(KaExperimentalApi::class)
+private fun findUpperBoundMatchingTypeParameter(
+    classSymbol: KaClassSymbol?,
+    type: KaTypeParameterType,
+): KaType? {
+    return classSymbol?.typeParameters.findAssociatedTypeParameterUpperBound(type)
+}
+
+private fun List<KaTypeParameterSymbol>?.findAssociatedTypeParameterUpperBound(type: KaTypeParameterType): KaType? {
+    if (this == null) return null
+    forEach { parameterSymbol ->
+        if (parameterSymbol == type.symbol) return parameterSymbol.upperBound
+    }
+    return null
+}
+
+/**
+ * ObjC doesn't support multiple upper bounds, so we take the first one
+ */
+private val KaTypeParameterSymbol.upperBound: KaType?
+    get() {
+        return upperBounds.firstOrNull()
+    }

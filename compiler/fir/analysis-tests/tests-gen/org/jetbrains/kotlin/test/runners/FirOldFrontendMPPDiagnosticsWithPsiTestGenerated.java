@@ -51,6 +51,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
   }
 
   @Test
+  @TestMetadata("actualTypealiasToNonexistent.kt")
+  public void testActualTypealiasToNonexistent() {
+    runTest("compiler/testData/diagnostics/tests/multiplatform/actualTypealiasToNonexistent.kt");
+  }
+
+  @Test
   @TestMetadata("actualTypealiasToSpecialAnnotation.kt")
   public void testActualTypealiasToSpecialAnnotation() {
     runTest("compiler/testData/diagnostics/tests/multiplatform/actualTypealiasToSpecialAnnotation.kt");
@@ -107,6 +113,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
   @TestMetadata("annotationArgTypeAliasWithArray.kt")
   public void testAnnotationArgTypeAliasWithArray() {
     runTest("compiler/testData/diagnostics/tests/multiplatform/annotationArgTypeAliasWithArray.kt");
+  }
+
+  @Test
+  @TestMetadata("arrayLimitationsInJvm.kt")
+  public void testArrayLimitationsInJvm() {
+    runTest("compiler/testData/diagnostics/tests/multiplatform/arrayLimitationsInJvm.kt");
   }
 
   @Test
@@ -1480,22 +1492,6 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
   }
 
   @Nested
-  @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/deprecated")
-  @TestDataPath("$PROJECT_ROOT")
-  public class Deprecated {
-    @Test
-    public void testAllFilesPresentInDeprecated() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/deprecated"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), TargetBackend.JVM_IR, true);
-    }
-
-    @Test
-    @TestMetadata("header.kt")
-    public void testHeader() {
-      runTest("compiler/testData/diagnostics/tests/multiplatform/deprecated/header.kt");
-    }
-  }
-
-  @Nested
   @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/deprecatedAnnotation")
   @TestDataPath("$PROJECT_ROOT")
   public class DeprecatedAnnotation {
@@ -1508,6 +1504,202 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     @TestMetadata("hidden.kt")
     public void testHidden() {
       runTest("compiler/testData/diagnostics/tests/multiplatform/deprecatedAnnotation/hidden.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization")
+  @TestDataPath("$PROJECT_ROOT")
+  public class DirectJavaActualization {
+    @Test
+    public void testAllFilesPresentInDirectJavaActualization() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), TargetBackend.JVM_IR, true);
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_actualClassWithoutExpect_sharedActual.kt")
+    public void testDirectJavaActualization_actualClassWithoutExpect_sharedActual() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_actualClassWithoutExpect_sharedActual.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_actualMemberWithoutExpect_sharedActual.kt")
+    public void testDirectJavaActualization_actualMemberWithoutExpect_sharedActual() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_actualMemberWithoutExpect_sharedActual.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_actualWithoutExpect.kt")
+    public void testDirectJavaActualization_actualWithoutExpect() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_actualWithoutExpect.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_annotation.kt")
+    public void testDirectJavaActualization_annotation() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_annotation.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_annotationOnlyOnExpect.kt")
+    public void testDirectJavaActualization_annotationOnlyOnExpect() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_annotationOnlyOnExpect.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_annotationPropertyMissingKotlinActualAnnotation.kt")
+    public void testDirectJavaActualization_annotationPropertyMissingKotlinActualAnnotation() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_annotationPropertyMissingKotlinActualAnnotation.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_annotationPropertyTypeMismatch.kt")
+    public void testDirectJavaActualization_annotationPropertyTypeMismatch() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_annotationPropertyTypeMismatch.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_clashWithActualTypealias.kt")
+    public void testDirectJavaActualization_clashWithActualTypealias() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_clashWithActualTypealias.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_classifierIncompatibilities.kt")
+    public void testDirectJavaActualization_classifierIncompatibilities() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_classifierIncompatibilities.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_companionObject.kt")
+    public void testDirectJavaActualization_companionObject() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_companionObject.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_defaultParamsInActualFakeOverride.kt")
+    public void testDirectJavaActualization_defaultParamsInActualFakeOverride() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_defaultParamsInActualFakeOverride.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_defaultParamsInActualFakeOverrideAddedDuringActualization.kt")
+    public void testDirectJavaActualization_defaultParamsInActualFakeOverrideAddedDuringActualization() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_defaultParamsInActualFakeOverrideAddedDuringActualization.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_defaultParamsInExpect.kt")
+    public void testDirectJavaActualization_defaultParamsInExpect() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_defaultParamsInExpect.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_defaultParamsInExpectFakeOverride.kt")
+    public void testDirectJavaActualization_defaultParamsInExpectFakeOverride() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_defaultParamsInExpectFakeOverride.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_enumStatics.kt")
+    public void testDirectJavaActualization_enumStatics() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_enumStatics.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_enumWithFun.kt")
+    public void testDirectJavaActualization_enumWithFun() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_enumWithFun.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_excessiveKotlinActualAnnotationOnJavaStatic.kt")
+    public void testDirectJavaActualization_excessiveKotlinActualAnnotationOnJavaStatic() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_excessiveKotlinActualAnnotationOnJavaStatic.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_funInterface_fakeOverrideInJava.kt")
+    public void testDirectJavaActualization_funInterface_fakeOverrideInJava() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_funInterface_fakeOverrideInJava.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_functionModifiers.kt")
+    public void testDirectJavaActualization_functionModifiers() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_functionModifiers.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_injectEmptySuperclass.kt")
+    public void testDirectJavaActualization_injectEmptySuperclass() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_injectEmptySuperclass.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_javaInDifferentModule.kt")
+    public void testDirectJavaActualization_javaInDifferentModule() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_javaInDifferentModule.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_javaStatics.kt")
+    public void testDirectJavaActualization_javaStatics() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_javaStatics.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_missingAnnotationOnJava.kt")
+    public void testDirectJavaActualization_missingAnnotationOnJava() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_missingAnnotationOnJava.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_multipleActuals.kt")
+    public void testDirectJavaActualization_multipleActuals() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_multipleActuals.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_overloadedMethods.kt")
+    public void testDirectJavaActualization_overloadedMethods() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_overloadedMethods.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_propertyInActual.kt")
+    public void testDirectJavaActualization_propertyInActual() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_propertyInActual.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_requiresOptIn.kt")
+    public void testDirectJavaActualization_requiresOptIn() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_requiresOptIn.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_sealedClass.kt")
+    public void testDirectJavaActualization_sealedClass() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_sealedClass.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_simple.kt")
+    public void testDirectJavaActualization_simple() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_simple.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_visibilityModifiers.kt")
+    public void testDirectJavaActualization_visibilityModifiers() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_visibilityModifiers.kt");
+    }
+
+    @Test
+    @TestMetadata("directJavaActualization_withTypeParameter.kt")
+    public void testDirectJavaActualization_withTypeParameter() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/directJavaActualization/directJavaActualization_withTypeParameter.kt");
     }
   }
 
@@ -2404,6 +2596,18 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     @Test
     public void testAllFilesPresentInSmartCasts() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/smartCasts"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), TargetBackend.JVM_IR, true);
+    }
+
+    @Test
+    @TestMetadata("classNoDefaultConstructor.kt")
+    public void testClassNoDefaultConstructor() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/smartCasts/classNoDefaultConstructor.kt");
+    }
+
+    @Test
+    @TestMetadata("inlineFunction.kt")
+    public void testInlineFunction() {
+      runTest("compiler/testData/diagnostics/tests/multiplatform/smartCasts/inlineFunction.kt");
     }
 
     @Test

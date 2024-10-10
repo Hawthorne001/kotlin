@@ -23,13 +23,11 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.appendText
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.readLines
+import kotlin.io.path.*
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@OsCondition(enabledOnCI = [OS.LINUX, OS.MAC, OS.WINDOWS])
 @DisplayName("Tests for general K/N builds")
 @NativeGradlePluginTests
 class GeneralNativeIT : KGPBaseTest() {
@@ -40,23 +38,38 @@ class GeneralNativeIT : KGPBaseTest() {
     @GradleTest
     fun shouldCheckKNativeCompilerStartedInParallel(gradleVersion: GradleVersion) {
         nativeProject("native-parallel", gradleVersion) {
-            val synchronisationBlock =
-                """
-                tasks.getByPath("compileKotlinLinux").doFirst {
-                    val countDownLatch = rootProject.extra["countDownLatch"] as CountDownLatch
-                    countDownLatch.countDown()
-                    countDownLatch.await()
-                }
-                """.trimIndent()
             buildGradleKts.appendText(
                 """
-                val countDownLatch by extra(CountDownLatch(2))
+                open class Box: BuildServiceParameters, java.io.Serializable {
+                    var latch: CountDownLatch? = null
+                    private fun writeObject(stream: java.io.ObjectOutputStream) { /* do nothing */ }
+                    private fun readObject(stream: java.io.ObjectInputStream) { this.latch = CountDownLatch(2) }
+                }
+                abstract class Service : BuildService<Box>
+                gradle.sharedServices.registerIfAbsent("service", Service::class.java) {}
                 """.trimIndent()
             )
+
+            fun insertSynchronisationBlock(file: Path) {
+                file.appendText(
+                    """
+                    run {
+                        val serviceProvider = gradle.sharedServices.registrations.getByName("service").getService()
+                        tasks.getByPath("compileKotlinLinux").doFirst {
+                            val service = serviceProvider.get()
+                            val countDownLatch = service.parameters.javaClass.getMethod("getLatch").invoke(service.parameters) as CountDownLatch
+                            countDownLatch.countDown()
+                            countDownLatch.await()
+                        }
+                    }
+                    """.trimIndent()
+                )
+            }
+
             // we are adding synchronisation before compileKotlinLinux execution in each subproject for making
             // at least the execution of these tasks parallel
-            subProject("one").buildGradleKts.appendText(synchronisationBlock)
-            subProject("two").buildGradleKts.appendText(synchronisationBlock)
+            insertSynchronisationBlock(subProject("one").buildGradleKts)
+            insertSynchronisationBlock(subProject("two").buildGradleKts)
 
             build(":one:compileKotlinLinux", ":two:compileKotlinLinux")
         }
@@ -94,8 +107,7 @@ class GeneralNativeIT : KGPBaseTest() {
             )
 
             val klibPrefix = CompilerOutputKind.LIBRARY.prefix(HostManager.host)
-            val klibSuffix = CompilerOutputKind.LIBRARY.suffix(HostManager.host)
-            val klibPath = "${kotlinClassesDir(targetName = "host")}${klibPrefix}/klib/native-library$klibSuffix"
+            val klibPath = "${kotlinClassesDir(targetName = "host")}${klibPrefix}/klib/native-library"
 
             val linkTasks = listOf(
                 ":linkDebugSharedHost",
@@ -115,7 +127,7 @@ class GeneralNativeIT : KGPBaseTest() {
                     assertFileInProjectExists(it)
                     assertFileInProjectContains(it, "_KInt (*exported)();")
                 }
-                assertFileInProjectExists(klibPath)
+                assertDirectoryInProjectExists(klibPath)
             }
 
             // Test that all up-to date checks are correct
@@ -131,82 +143,6 @@ class GeneralNativeIT : KGPBaseTest() {
                 assertTasksUpToDate(klibTask)
                 assertTasksExecuted(linkTasks[0])
             }
-        }
-    }
-
-    @OsCondition(supportedOn = [OS.MAC], enabledOnCI = [OS.MAC])
-    @DisplayName("Can provide native framework artifact")
-    @GradleTest
-    fun testCanProvideNativeFrameworkArtifact(gradleVersion: GradleVersion) {
-        nativeProject("native-binaries/frameworks", gradleVersion = gradleVersion) {
-            buildGradleKts.appendText(
-                //language=kotlin
-                """
-                val frameworkTargets = Attribute.of(
-                    "org.jetbrains.kotlin.native.framework.targets",
-                    Set::class.java
-                )
-                val kotlinNativeBuildTypeAttribute = Attribute.of(
-                    "org.jetbrains.kotlin.native.build.type",
-                    String::class.java
-                )
-                     
-                fun validateConfiguration(conf: Configuration, targets: Set<String>, expectedBuildType: String) {
-                    if (conf.artifacts.files.count() != 1 || conf.artifacts.files.singleFile.name != "main.framework") {
-                        throw IllegalStateException("No single artifact with proper name \"main.framework\"")
-                    }
-                    val confTargets = conf.attributes.getAttribute(frameworkTargets)!!
-                    val buildType = conf.attributes.getAttribute(kotlinNativeBuildTypeAttribute)!!
-                    if (confTargets.size != targets.size || !confTargets.containsAll(targets)) {
-                        throw IllegalStateException("Framework has incorrect attributes. Expected targets: \"${'$'}targets\", actual: \"${'$'}confTargets\"")
-                    }
-                    if (buildType != expectedBuildType) {
-                       throw IllegalStateException("Framework has incorrect attributes. Expected build type: \"${'$'}expectedBuildType\", actual: \"${'$'}buildType\"")
-                    }
-                }
-                
-                tasks.register("validateThinArtifacts") {
-                    doLast {
-                        val targets = listOf("ios" to "ios_arm64", "iosSim" to "ios_x64")
-                        val buildTypes = listOf("release", "debug")
-                        targets.forEach { (name, target) ->
-                            buildTypes.forEach { buildType ->
-                                val conf = project.configurations.getByName("main${'$'}{buildType.capitalize()}Framework${'$'}{name.capitalize()}")
-                                validateConfiguration(conf, setOf(target), buildType.toUpperCase())
-                            }
-                        }
-                    }
-                }
-                
-                tasks.register("validateFatArtifacts") {
-                    doLast {
-                        val buildTypes = listOf("release", "debug")
-                        buildTypes.forEach { buildType ->
-                            val conf = project.configurations.getByName("main${'$'}{buildType.capitalize()}FrameworkIosFat")
-                            validateConfiguration(conf, setOf("ios_x64", "ios_arm64"), buildType.toUpperCase())
-                        }
-                    }
-                }
-                
-                tasks.register("validateCustomAttributesSetting") {
-                    doLast {
-                        val conf = project.configurations.getByName("customReleaseFrameworkIos")
-                        val attr1Value = conf.attributes.getAttribute(disambiguation1Attribute)
-                        if (attr1Value != "someValue") {
-                            throw IllegalStateException("myDisambiguation1Attribute has incorrect value. Expected: \"someValue\", actual: \"${'$'}attr1Value\"")
-                        }
-                        val attr2Value = conf.attributes.getAttribute(disambiguation2Attribute)
-                        if (attr2Value != "someValue2") {
-                           throw IllegalStateException("myDisambiguation2Attribute has incorrect value. Expected: \"someValue2\", actual: \"${'$'}attr2Value\"")
-                        }
-                    }
-                }
-                """.trimIndent()
-            )
-
-            build(":validateThinArtifacts")
-            build(":validateFatArtifacts")
-            build(":validateCustomAttributesSetting")
         }
     }
 
@@ -576,7 +512,7 @@ class GeneralNativeIT : KGPBaseTest() {
             val bootedSimulatorsBefore = getBootedSimulators()
 
             // Check the case when all tests pass.
-            build("check", forceOutput = true) {
+            build("check") {
 
                 assertTasksExecuted(*testsToExecute.toTypedArray())
                 assertTasksSkipped(*testsToSkip.toTypedArray())
@@ -689,31 +625,9 @@ class GeneralNativeIT : KGPBaseTest() {
                 assertTrue(stacktrace.contains("""at org\.foo\.test#fail\(.*test\.kt:29\)""".toRegex()))
             }
 
-            fun assertTestResultsAnyOf(
-                @TestDataFile assertionFile1Name: String,
-                @TestDataFile assertionFile2Name: String,
-                vararg testReportNames: String,
-            ) {
-                try {
-                    assertTestResults(projectPath.resolve(assertionFile1Name), *testReportNames) { s ->
-                        val excl = "Invalid connection: com.apple.coresymbolicationd"
-                        s.lines().filter { it != excl }.joinToString("\n")
-                    }
-                } catch (e: AssertionError) {
-                    assertTestResults(projectPath.resolve(assertionFile2Name), *testReportNames) { s ->
-                        val excl = "Invalid connection: com.apple.coresymbolicationd"
-                        s.lines().filter { it != excl }.joinToString("\n")
-                    }
-                }
-            }
-
             val expectedHostTestResult = "TEST-TestKt.xml"
-            val expectedIOSTestResults = listOf(
-                "TEST-TestKt-iOSsim.xml",
-                "TEST-TestKt-iOSArm64sim.xml",
-            )
-
             assertTestResults(projectPath.resolve(expectedHostTestResult), hostTestTask)
+
             // K/N doesn't report line numbers correctly on Linux (see KT-35408).
             // TODO: Move assertStacktrace(hostTestTask, "host") out of if clause
             if (HostManager.hostIsMac) {
@@ -724,10 +638,13 @@ class GeneralNativeIT : KGPBaseTest() {
                     else -> throw IllegalStateException("Unsupported host: ${HostManager.host}")
                 }
                 val testTask = "${testTarget}Test"
-                assertTestResultsAnyOf(
-                    expectedIOSTestResults[0],
-                    expectedIOSTestResults[1],
-                    testTask
+
+                val expectedXmlPath = projectPath.resolve("TEST-TestKt-iOSsim.xml")
+                projectPath.resolve("TEST-TestKt-iOSsim-template.xml").copyTo(expectedXmlPath)
+                expectedXmlPath.replaceText("<target>", testTarget)
+                assertTestResults(
+                    expectedXmlPath,
+                    testTask,
                 )
                 assertStacktrace(testTask, testTarget)
             }
@@ -739,7 +656,7 @@ class GeneralNativeIT : KGPBaseTest() {
     fun testNativeTestGetters(gradleVersion: GradleVersion) {
         nativeProject("native-tests", gradleVersion) {
             // Check that test binaries can be accessed in a buildscript.
-            build("checkGetters") {
+            build("tasks") {
                 val suffix = if (HostManager.hostIsMingw) "exe" else "kexe"
                 val names = listOf("test", "another")
                 val files = names.map { "$it.$suffix" }
@@ -772,10 +689,10 @@ class GeneralNativeIT : KGPBaseTest() {
             gradleVersion, configureSubProjects = true,
             localRepoDir = defaultLocalRepo(gradleVersion)
         ) {
-            fun libraryFiles(projectName: String, cinteropName: String) = listOf(
-                projectPath.resolve("$projectName/build/classes/kotlin/host/main/cinterop/${projectName}-cinterop-$cinteropName.klib"),
-                projectPath.resolve("$projectName/build/classes/kotlin/host/main/klib/${projectName}.klib"),
-                projectPath.resolve("$projectName/build/classes/kotlin/host/test/klib/${projectName}_test.klib")
+            fun libraryDirectories(projectName: String, cinteropName: String) = listOf(
+                projectPath.resolve("$projectName/build/classes/kotlin/host/main/cinterop/${projectName}-cinterop-$cinteropName"),
+                projectPath.resolve("$projectName/build/classes/kotlin/host/main/klib/${projectName}"),
+                projectPath.resolve("$projectName/build/classes/kotlin/host/test/klib/${projectName}_test")
             )
 
             // Enable info log to see cinterop environment variables.
@@ -783,7 +700,7 @@ class GeneralNativeIT : KGPBaseTest() {
                 ":projectLibrary:build",
             ) {
                 assertTasksExecuted(":projectLibrary:cinteropAnotherNumberHost")
-                libraryFiles("projectLibrary", "anotherNumber").forEach { assertFileExists(it) }
+                libraryDirectories("projectLibrary", "anotherNumber").forEach { assertDirectoryExists(it) }
                 assertNativeTasksCustomEnvironment(
                     ":projectLibrary:cinteropAnotherNumberHost",
                     toolName = NativeToolKind.C_INTEROP
@@ -794,7 +711,7 @@ class GeneralNativeIT : KGPBaseTest() {
 
             build(":publishedLibrary:build", ":publishedLibrary:publish") {
                 assertTasksExecuted(":publishedLibrary:cinteropNumberHost")
-                libraryFiles("publishedLibrary", "number").forEach { assertFileExists(it) }
+                libraryDirectories("publishedLibrary", "number").forEach { assertDirectoryExists(it) }
             }
 
             build(":build")
@@ -835,7 +752,7 @@ class GeneralNativeIT : KGPBaseTest() {
         }
     }
 
-    @DisplayName("Assert that a project with a native target can be configure")
+    @DisplayName("Assert that a project with a native target can be configured on platforms without frameworks")
     @GradleTest
     @OsCondition(supportedOn = [OS.LINUX, OS.WINDOWS])
     fun testIgnoreDisabledNativeTargets(gradleVersion: GradleVersion) {

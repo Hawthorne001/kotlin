@@ -36,8 +36,8 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrTransformer
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -49,10 +49,7 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.topologicalSort
 
-@PhaseDescription(
-    name = "ScriptsToClasses",
-    description = "Put script declarations into classes",
-)
+@PhaseDescription(name = "ScriptsToClasses")
 internal class ScriptsToClassesLowering(val context: JvmBackendContext) : ModuleLoweringPass {
     override fun lower(irModule: IrModuleFragment) {
         val scripts = mutableListOf<IrScript>()
@@ -320,11 +317,9 @@ internal class ScriptsToClassesLowering(val context: JvmBackendContext) : Module
                 containerSource = containerSource,
             )
         }.also { irConstructor ->
-            var parametersIndex = 0
             irConstructor.valueParameters = buildList {
                 irScript.earlierScriptsParameter?.let {
                     add(it)
-                    ++parametersIndex
                 }
                 addAll(
                     irScript.explicitCallParameters.map {
@@ -336,7 +331,6 @@ internal class ScriptsToClassesLowering(val context: JvmBackendContext) : Module
                             type = it.type,
                             isAssignable = false,
                             symbol = IrValueParameterSymbolImpl(),
-                            index = parametersIndex++,
                             varargElementType = null,
                             isCrossinline = false,
                             isNoinline = false,
@@ -538,7 +532,7 @@ private fun makeImplicitReceiversFieldsWithParameters(irScriptClass: IrClass, ty
             val name = Name.identifier("\$\$importedScript_${type.classFqName?.shortName()?.asString()!!}")
             val param = irScriptClass.factory.createValueParameter(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER, name, type, isAssignable = false,
-                IrValueParameterSymbolImpl(), UNDEFINED_PARAMETER_INDEX, varargElementType = null,
+                IrValueParameterSymbolImpl(), varargElementType = null,
                 isCrossinline = false, isNoinline = false, isHidden = false,
             )
             param.parent = irScriptClass
@@ -609,7 +603,7 @@ private class ScriptToClassTransformer(
     val capturingClasses: Set<IrClassImpl>,
     val earlierScriptsField: IrField?,
     val implicitReceiversFieldsWithParameters: Collection<Pair<IrField, IrValueParameter>>
-) : IrElementTransformer<ScriptToClassTransformerContext> {
+) : IrTransformer<ScriptToClassTransformerContext>() {
 
     private fun IrType.remapType() = typeRemapper.remapType(this)
 
@@ -1020,7 +1014,7 @@ private class ScriptToClassTransformer(
         }?.origin == IrDeclarationOrigin.SCRIPT_THIS_RECEIVER
 }
 
-private class ScriptFixLambdasTransformer(val irScriptClass: IrClass) : IrElementTransformer<ScriptFixLambdasTransformerContext> {
+private class ScriptFixLambdasTransformer(val irScriptClass: IrClass) : IrTransformer<ScriptFixLambdasTransformerContext>() {
 
     private fun unexpectedElement(element: IrElement): Nothing =
         throw IllegalArgumentException("Unsupported element type: $element")
@@ -1117,7 +1111,6 @@ private fun IrDeclarationParent.createThisReceiverParameter(
         type = type,
         isAssignable = false,
         symbol = IrValueParameterSymbolImpl(),
-        index = UNDEFINED_PARAMETER_INDEX,
         varargElementType = null,
         isCrossinline = false,
         isNoinline = false,

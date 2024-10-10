@@ -10,6 +10,8 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.copyWithNewSourceKind
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 
@@ -40,16 +42,25 @@ internal fun FirCallableDeclaration.transformTypeToArrayType(session: FirSession
     )
 }
 
+val FirBasedSymbol<*>.isArrayConstructorWithLambda: Boolean
+    get() {
+        val constructor = (this as? FirConstructorSymbol)?.fir ?: return false
+        if (constructor.valueParameters.size != 2) return false
+        return constructor.returnTypeRef.coneType.isArrayOrPrimitiveArray
+    }
+
+
 fun FirAnonymousFunction.transformInlineStatus(
     parameter: FirValueParameter,
     functionIsInline: Boolean,
     session: FirSession,
 ) {
-    val parameterIsSomeFunction = parameter.returnTypeRef.coneType.isSomeFunctionType(session)
+    val functionalKindOfParameter = parameter.returnTypeRef.coneType.functionTypeKind(session)
     val inlineStatus = when {
-        !parameterIsSomeFunction -> InlineStatus.NoInline
-        parameter.isCrossinline && functionIsInline -> InlineStatus.CrossInline
+        functionalKindOfParameter == null -> InlineStatus.NoInline
+        !functionalKindOfParameter.isInlineable -> InlineStatus.NoInline
         parameter.isNoinline -> InlineStatus.NoInline
+        parameter.isCrossinline && functionIsInline -> InlineStatus.CrossInline
         functionIsInline -> InlineStatus.Inline
         else -> InlineStatus.NoInline
     }

@@ -177,11 +177,10 @@ class BuildCacheIT : KGPBaseTest() {
         }
     }
 
-    //doesn't work for build history files approach
     @DisplayName("Restore from build cache should not break incremental compilation")
     @GradleTest
     fun testIncrementalCompilationAfterCacheHit(gradleVersion: GradleVersion) {
-        project("incrementalMultiproject", gradleVersion, buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true, useGradleClasspathSnapshot = false)) {
+        project("incrementalMultiproject", gradleVersion) {
             enableLocalBuildCache(localBuildCacheDir)
             build("assemble")
             build("clean", "assemble") {
@@ -191,10 +190,12 @@ class BuildCacheIT : KGPBaseTest() {
             val bKtSourceFile = projectPath.resolve("lib/src/main/kotlin/bar/B.kt")
 
             bKtSourceFile.modify { it.replace("fun b() {}", "fun b() {}\nfun b2() {}") }
+            val affectedAppSourceFile = projectPath.resolve("app/src/main/kotlin/foo/BB.kt")
 
-            build("assemble", buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true, useGradleClasspathSnapshot = false, logLevel = LogLevel.DEBUG)) {
-                assertIncrementalCompilation(expectedCompiledKotlinFiles = setOf(bKtSourceFile).map { it.relativeTo(projectPath)})
-                assertOutputContains("Incremental compilation with ABI snapshot enabled")
+            build("assemble", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
+                assertIncrementalCompilation(
+                    expectedCompiledKotlinFiles = relativeToProject(listOf(bKtSourceFile, affectedAppSourceFile))
+                )
             }
         }
     }
@@ -274,7 +275,7 @@ class BuildCacheIT : KGPBaseTest() {
 
             build("assemble", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
                 assertIncrementalCompilation(expectedCompiledKotlinFiles = listOf(projectPath.relativize(fileToEdit)))
-                assertCompiledKotlinSourcesHandleKapt3(
+                assertCompiledKotlinSourcesHandleKapt(
                     listOf(projectPath.relativize(fileToEdit)),
                     ":app"
                 )
@@ -315,7 +316,7 @@ class BuildCacheIT : KGPBaseTest() {
 
             build("build", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
 
-                assertCompiledKotlinTestSourcesAreHandledByKapt3(
+                assertCompiledKotlinTestSourcesAreHandledByKapt(
                     listOf(projectPath.relativize(testFileToEdit)),
                     ":app"
                 )

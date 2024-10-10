@@ -117,7 +117,7 @@ internal class StubBasedFirTypeDeserializer(
                 annotations += buildAnnotation {
                     annotationTypeRef = buildResolvedTypeRef {
                         coneType = StandardNames.FqNames.parameterNameClassId.toLookupTag()
-                            .constructClassType(ConeTypeProjection.EMPTY_ARRAY, isNullable = false)
+                            .constructClassType()
                     }
                     this.argumentMapping = buildAnnotationArgumentMapping {
                         mapping[StandardNames.NAME] =
@@ -135,7 +135,7 @@ internal class StubBasedFirTypeDeserializer(
                 val lookupTag =
                     typeParametersByName[type.typeParameterName]?.toLookupTag() ?: parent?.typeParameterSymbol(type.typeParameterName)
                     ?: return null
-                return ConeTypeParameterTypeImpl(lookupTag, isNullable = type.nullable).let {
+                return ConeTypeParameterTypeImpl(lookupTag, isMarkedNullable = type.nullable).let {
                     if (type.definitelyNotNull)
                         ConeDefinitelyNotNullType.create(it, moduleData.session.typeContext, avoidComprehensiveCheck = true) ?: it
                     else
@@ -182,7 +182,7 @@ internal class StubBasedFirTypeDeserializer(
         return ConeClassLikeTypeImpl(
             typeBean.classId.toLookupTag(),
             projections.toTypedArray(),
-            isNullable = typeBean.nullable,
+            isMarkedNullable = typeBean.nullable,
             attributes,
         )
     }
@@ -236,7 +236,7 @@ internal class StubBasedFirTypeDeserializer(
         val constructor = typeSymbol(typeReference) ?: return null
         val isNullable = typeReference.typeElement is KtNullableType
         if (constructor is ConeTypeParameterLookupTag) {
-            return ConeTypeParameterTypeImpl(constructor, isNullable = isNullable, attributes).let {
+            return ConeTypeParameterTypeImpl(constructor, isMarkedNullable = isNullable, attributes).let {
                 if (typeReference.typeElement?.unwrapNullability() is KtIntersectionType) {
                     ConeDefinitelyNotNullType.create(it, moduleData.session.typeContext, avoidComprehensiveCheck = true) ?: it
                 } else it
@@ -246,7 +246,14 @@ internal class StubBasedFirTypeDeserializer(
 
         val typeElement = typeReference.typeElement?.unwrapNullability()
         val arguments = when (typeElement) {
-            is KtUserType -> typeElement.typeArguments.map { typeArgument(it) }.toTypedArray()
+            is KtUserType -> buildList {
+                // The type for Outer<T>.Inner<S> needs to have type args <S, T>
+                var current: KtUserType? = typeElement
+                while (current != null) {
+                    current.typeArguments.forEach { add(typeArgument(it)) }
+                    current = current.qualifier
+                }
+            }.toTypedArray()
             is KtFunctionType -> buildList {
                 typeElement.receiver?.let { add(type(it.typeReference).toTypeProjection(Variance.INVARIANT)) }
                 addAll(typeElement.parameters.map { type(it.typeReference!!).toTypeProjection(Variance.INVARIANT) })
@@ -260,7 +267,7 @@ internal class StubBasedFirTypeDeserializer(
         return ConeClassLikeTypeImpl(
             constructor,
             arguments,
-            isNullable = isNullable,
+            isMarkedNullable = isNullable,
             if (typeElement is KtFunctionType && typeElement.receiver != null) {
                 ConeAttributes.WithExtensionFunctionType.add(attributes)
             } else {

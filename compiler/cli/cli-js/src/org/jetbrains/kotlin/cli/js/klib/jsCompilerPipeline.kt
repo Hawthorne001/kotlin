@@ -239,7 +239,7 @@ fun transformFirToIr(
         kotlinBuiltIns = builtInsModule ?: DefaultBuiltIns.Instance,
         typeSystemContextProvider = ::IrTypeSystemContextImpl,
         specialAnnotationsProvider = null,
-        extraActualDeclarationExtractorInitializer = { null },
+        extraActualDeclarationExtractorsInitializer = { emptyList() },
     ) { irModuleFragment ->
         (irModuleFragment.descriptor as? FirModuleDescriptor)?.let { it.allDependencyModules = librariesDescriptors }
     }
@@ -274,6 +274,7 @@ fun serializeFirKlib(
         klibPath = outputKlibPath,
         moduleStructure.allDependencies,
         fir2IrActualizedResult.irModuleFragment,
+        fir2IrActualizedResult.irBuiltIns,
         cleanFiles = icData ?: emptyList(),
         nopack = nopack,
         perFile = false,

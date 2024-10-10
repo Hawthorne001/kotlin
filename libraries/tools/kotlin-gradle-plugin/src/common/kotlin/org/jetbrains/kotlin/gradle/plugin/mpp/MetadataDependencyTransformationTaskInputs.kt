@@ -9,6 +9,7 @@ import org.gradle.api.tasks.*
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
+import org.jetbrains.kotlin.gradle.plugin.internal.kotlinSecondaryVariantsDataSharing
 import org.jetbrains.kotlin.gradle.plugin.mpp.internal.projectStructureMetadataResolvableConfiguration
 import org.jetbrains.kotlin.gradle.plugin.sources.internal
 import org.jetbrains.kotlin.gradle.utils.currentBuild
@@ -36,6 +37,22 @@ internal class MetadataDependencyTransformationTaskInputs(
     val projectStructureMetadataFileCollection: ConfigurableFileCollection = project.filesProvider {
         kotlinSourceSet.internal.projectStructureMetadataResolvableConfiguration?.lenientArtifactsView?.artifactFiles
     }
+
+    @Suppress("unused") // Gradle input
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    @get:IgnoreEmptyDirectories
+    @get:NormalizeLineEndings
+    @get:Optional
+    val sourceSetConfigurationToResolve: FileCollection? =
+        // This configuration is resolvable only for P2P dependencies, for IDE import we should not invoke sourceSet metadata compilations
+        if (keepProjectDependencies) {
+            project.kotlinSecondaryVariantsDataSharing
+                .consumeCommonSourceSetMetadataLocations(kotlinSourceSet.internal.resolvableMetadataConfiguration)
+                .files
+        } else {
+            null
+        }
 
     @Suppress("unused") // Gradle input
     @get:InputFiles
@@ -83,12 +100,18 @@ internal class MetadataDependencyTransformationTaskInputs(
 
     @Suppress("unused") // Gradle input
     @get:Input
-    val inputCompilationDependencies: Map<String, Set<List<String?>>> by lazy {
+    val inputCompilationDependencies: Map<String, Set<String>> by lazy {
         participatingSourceSets.flatMap { it.internal.compilations }.associate {
             it.name to project.configurations.getByName(it.compileDependencyConfigurationName)
                 .allDependencies
-                .applyIf(!keepProjectDependencies) { filterNot { it is ProjectDependency } }
-                .map { listOf(it.group, it.name, it.version) }.toSet()
+                .map { dependency ->
+                    if (dependency is ProjectDependency && keepProjectDependencies) {
+                        dependency.dependencyProject.path
+                    } else {
+                        "${dependency.name}:${dependency.group}:${dependency.version}"
+                    }
+                }
+                .toSet()
         }
     }
 

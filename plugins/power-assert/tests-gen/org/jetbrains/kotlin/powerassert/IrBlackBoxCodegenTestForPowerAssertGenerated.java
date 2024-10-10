@@ -289,6 +289,12 @@ public class IrBlackBoxCodegenTestForPowerAssertGenerated extends AbstractIrBlac
     }
 
     @Test
+    @TestMetadata("CarriageReturn.kt")
+    public void testCarriageReturn() {
+      runTest("plugins/power-assert/testData/codegen/format/CarriageReturn.kt");
+    }
+
+    @Test
     @TestMetadata("ChainedMultiline.kt")
     public void testChainedMultiline() {
       runTest("plugins/power-assert/testData/codegen/format/ChainedMultiline.kt");
@@ -661,6 +667,12 @@ public class IrBlackBoxCodegenTestForPowerAssertGenerated extends AbstractIrBlac
     }
 
     @Test
+    @TestMetadata("GetOperator.kt")
+    public void testGetOperator() {
+      runTest("plugins/power-assert/testData/codegen/operator/GetOperator.kt");
+    }
+
+    @Test
     @TestMetadata("NegativeContainsFunction.kt")
     public void testNegativeContainsFunction() {
       runTest("plugins/power-assert/testData/codegen/operator/NegativeContainsFunction.kt");
@@ -686,6 +698,12 @@ public class IrBlackBoxCodegenTestForPowerAssertGenerated extends AbstractIrBlac
     @TestMetadata("implicitReceiver.kt")
     public void testImplicitReceiver() {
       runTest("plugins/power-assert/testData/codegen/parameters/implicitReceiver.kt");
+    }
+
+    @Test
+    @TestMetadata("TypeParameters.kt")
+    public void testTypeParameters() {
+      runTest("plugins/power-assert/testData/codegen/parameters/TypeParameters.kt");
     }
 
     @Test

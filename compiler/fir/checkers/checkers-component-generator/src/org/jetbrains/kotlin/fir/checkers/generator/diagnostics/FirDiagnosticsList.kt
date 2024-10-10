@@ -16,7 +16,9 @@ import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
+import org.jetbrains.kotlin.descriptors.RelationToType
 import org.jetbrains.kotlin.descriptors.Visibility
+import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
 import org.jetbrains.kotlin.diagnostics.WhenMissingCase
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.model.*
@@ -81,6 +83,12 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val NESTED_CLASS_NOT_ALLOWED by error<KtNamedDeclaration>(PositioningStrategy.DECLARATION_NAME) {
             parameter<String>("declaration")
         }
+        val NESTED_CLASS_NOT_ALLOWED_IN_LOCAL by deprecationError<KtNamedDeclaration>(
+            LanguageFeature.ForbidCompanionInLocalInnerClass,
+            PositioningStrategy.DECLARATION_NAME
+        ) {
+            parameter<String>("declaration")
+        }
         val INCORRECT_CHARACTER_LITERAL by error<PsiElement>()
         val EMPTY_CHARACTER_LITERAL by error<PsiElement>()
         val TOO_MANY_CHARACTERS_IN_CHARACTER_LITERAL by error<PsiElement>()
@@ -113,6 +121,10 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         }
         val MISSING_CONSTRUCTOR_KEYWORD by error<PsiElement>()
         val REDUNDANT_INTERPOLATION_PREFIX by warning<PsiElement>()
+        val WRAPPED_LHS_IN_ASSIGNMENT by deprecationError<PsiElement>(
+            LanguageFeature.ForbidParenthesizedLhsInAssignments,
+            PositioningStrategy.OUTERMOST_PARENTHESES_IN_ASSIGNMENT_LHS,
+        )
     }
 
     val UNRESOLVED by object : DiagnosticGroup("Unresolved") {
@@ -133,38 +145,38 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val MISSING_STDLIB_CLASS by error<PsiElement>()
         val NO_THIS by error<PsiElement>()
 
-        val DEPRECATION_ERROR by error<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
+        val DEPRECATION_ERROR by error<PsiElement>(PositioningStrategy.DEPRECATION) {
             parameter<Symbol>("reference")
             parameter<String>("message")
             isSuppressible = true
         }
 
-        val DEPRECATION by warning<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
+        val DEPRECATION by warning<PsiElement>(PositioningStrategy.DEPRECATION) {
             parameter<Symbol>("reference")
             parameter<String>("message")
         }
 
-        val VERSION_REQUIREMENT_DEPRECATION_ERROR by error<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
-            parameter<Symbol>("reference")
-            parameter<VersionRequirement.Version>("version")
-            parameter<String>("currentVersion")
-            parameter<String>("message")
-        }
-
-        val VERSION_REQUIREMENT_DEPRECATION by warning<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
+        val VERSION_REQUIREMENT_DEPRECATION_ERROR by error<PsiElement>(PositioningStrategy.DEPRECATION) {
             parameter<Symbol>("reference")
             parameter<VersionRequirement.Version>("version")
             parameter<String>("currentVersion")
             parameter<String>("message")
         }
 
-        val TYPEALIAS_EXPANSION_DEPRECATION_ERROR by error<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
+        val VERSION_REQUIREMENT_DEPRECATION by warning<PsiElement>(PositioningStrategy.DEPRECATION) {
+            parameter<Symbol>("reference")
+            parameter<VersionRequirement.Version>("version")
+            parameter<String>("currentVersion")
+            parameter<String>("message")
+        }
+
+        val TYPEALIAS_EXPANSION_DEPRECATION_ERROR by error<PsiElement>(PositioningStrategy.DEPRECATION) {
             parameter<Symbol>("alias")
             parameter<Symbol>("reference")
             parameter<String>("message")
             isSuppressible = true
         }
-        val TYPEALIAS_EXPANSION_DEPRECATION by warning<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
+        val TYPEALIAS_EXPANSION_DEPRECATION by warning<PsiElement>(PositioningStrategy.DEPRECATION) {
             parameter<Symbol>("alias")
             parameter<Symbol>("reference")
             parameter<String>("message")
@@ -237,14 +249,6 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         }
         val AMBIGUOUS_ALTERED_ASSIGN by error<PsiElement> {
             parameter<List<String?>>("altererNames")
-        }
-        val FORBIDDEN_BINARY_MOD by error<PsiElement>(PositioningStrategy.OPERATOR_MODIFIER) {
-            parameter<FirBasedSymbol<*>>("forbiddenFunction")
-            parameter<String>("suggestedFunction")
-        }
-        val DEPRECATED_BINARY_MOD by error<PsiElement>(PositioningStrategy.OPERATOR_MODIFIER) {
-            parameter<FirBasedSymbol<*>>("forbiddenFunction")
-            parameter<String>("suggestedFunction")
         }
         val SELF_CALL_IN_NESTED_OBJECT_CONSTRUCTOR_ERROR by error<PsiElement>()
     }
@@ -354,11 +358,11 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val ANNOTATION_ARGUMENT_MUST_BE_CONST by error<KtExpression>()
         val ANNOTATION_ARGUMENT_MUST_BE_ENUM_CONST by error<KtExpression>()
         val ANNOTATION_ARGUMENT_MUST_BE_KCLASS_LITERAL by error<KtExpression>()
-        val ANNOTATION_CLASS_MEMBER by error<PsiElement>()
+        val ANNOTATION_CLASS_MEMBER by error<PsiElement>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val ANNOTATION_PARAMETER_DEFAULT_VALUE_MUST_BE_CONSTANT by error<KtExpression>()
         val INVALID_TYPE_OF_ANNOTATION_MEMBER by error<KtElement>()
         val PROJECTION_IN_TYPE_OF_ANNOTATION_MEMBER by deprecationError<KtTypeReference>(LanguageFeature.ForbidProjectionsInAnnotationProperties)
-        val LOCAL_ANNOTATION_CLASS_ERROR by error<KtClassOrObject>()
+        val LOCAL_ANNOTATION_CLASS_ERROR by error<KtClassOrObject>(PositioningStrategy.DECLARATION_NAME)
         val MISSING_VAL_ON_ANNOTATION_PARAMETER by error<KtParameter>()
         val NON_CONST_VAL_USED_IN_CONSTANT_EXPRESSION by error<KtExpression>()
         val CYCLE_IN_ANNOTATION_PARAMETER by deprecationError<KtParameter>(LanguageFeature.ProhibitCyclesInAnnotations)
@@ -381,6 +385,8 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val DEPRECATED_SINCE_KOTLIN_WITH_DEPRECATED_LEVEL by error<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED)
         val DEPRECATED_SINCE_KOTLIN_OUTSIDE_KOTLIN_SUBPACKAGE by error<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED)
 
+        val KOTLIN_ACTUAL_ANNOTATION_HAS_NO_EFFECT_IN_KOTLIN by error<KtElement>()
+
         val OVERRIDE_DEPRECATION by warning<KtNamedDeclaration>(PositioningStrategy.DECLARATION_NAME) {
             parameter<Symbol>("overridenSymbol")
             parameter<FirDeprecationInfo>("deprecationInfo")
@@ -394,10 +400,16 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val RESTRICTED_RETENTION_FOR_EXPRESSION_ANNOTATION by deprecationError<PsiElement>(LanguageFeature.RestrictRetentionForExpressionAnnotations)
         val WRONG_ANNOTATION_TARGET by error<KtAnnotationEntry> {
             parameter<String>("actualTarget")
+            parameter<Collection<KotlinTarget>>("allowedTargets")
+        }
+        val WRONG_ANNOTATION_TARGET_WARNING by warning<KtAnnotationEntry> {
+            parameter<String>("actualTarget")
+            parameter<Collection<KotlinTarget>>("allowedTargets")
         }
         val WRONG_ANNOTATION_TARGET_WITH_USE_SITE_TARGET by error<KtAnnotationEntry> {
             parameter<String>("actualTarget")
             parameter<String>("useSiteTarget")
+            parameter<Collection<KotlinTarget>>("allowedTargets")
         }
         val INAPPLICABLE_TARGET_ON_PROPERTY by error<KtAnnotationEntry> {
             parameter<String>("useSiteDescription")
@@ -421,6 +433,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val WRONG_EXTENSION_FUNCTION_TYPE by error<KtAnnotationEntry>()
         val WRONG_EXTENSION_FUNCTION_TYPE_WARNING by warning<KtAnnotationEntry>()
         val ANNOTATION_IN_WHERE_CLAUSE_ERROR by error<KtAnnotationEntry>()
+        val ANNOTATION_IN_CONTRACT_ERROR by error<KtElement>()
 
         val COMPILER_REQUIRED_ANNOTATION_AMBIGUITY by error<PsiElement> {
             parameter<ConeKotlinType>("typeFromCompilerPhase")
@@ -451,6 +464,15 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             parameter<String>("message")
             isSuppressible = true
         }
+        val OPT_IN_TO_INHERITANCE by warning<PsiElement>(PositioningStrategy.REFERENCE_BY_QUALIFIED) {
+            parameter<ClassId>("optInMarkerClassId")
+            parameter<String>("message")
+        }
+        val OPT_IN_TO_INHERITANCE_ERROR by error<PsiElement>(PositioningStrategy.REFERENCE_BY_QUALIFIED) {
+            parameter<ClassId>("optInMarkerClassId")
+            parameter<String>("message")
+            isSuppressible = true
+        }
         val OPT_IN_OVERRIDE by warning<PsiElement>(PositioningStrategy.DECLARATION_NAME) {
             parameter<ClassId>("optInMarkerClassId")
             parameter<String>("message")
@@ -466,7 +488,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val OPT_IN_MARKER_CAN_ONLY_BE_USED_AS_ANNOTATION_OR_ARGUMENT_IN_OPT_IN by error<PsiElement>()
 
         val OPT_IN_WITHOUT_ARGUMENTS by warning<KtAnnotationEntry>()
-        val OPT_IN_ARGUMENT_IS_NOT_MARKER by warning<KtAnnotationEntry> {
+        val OPT_IN_ARGUMENT_IS_NOT_MARKER by warning<KtClassLiteralExpression> {
             parameter<ClassId>("notMarkerClassId")
         }
         val OPT_IN_MARKER_WITH_WRONG_TARGET by error<KtAnnotationEntry> {
@@ -483,7 +505,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val SUBCLASS_OPT_IN_INAPPLICABLE by error<KtAnnotationEntry> {
             parameter<String>("target")
         }
-        val SUBCLASS_OPT_ARGUMENT_IS_NOT_MARKER by error<KtAnnotationEntry> {
+        val SUBCLASS_OPT_IN_ARGUMENT_IS_NOT_MARKER by error<KtClassLiteralExpression> {
             parameter<ClassId>("notMarkerClassId")
         }
     }
@@ -575,7 +597,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val INLINE_CLASS_CONSTRUCTOR_WRONG_PARAMETERS_SIZE by error<KtElement>()
         val VALUE_CLASS_EMPTY_CONSTRUCTOR by error<KtElement>()
         val VALUE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER by error<KtParameter>()
-        val PROPERTY_WITH_BACKING_FIELD_INSIDE_VALUE_CLASS by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val PROPERTY_WITH_BACKING_FIELD_INSIDE_VALUE_CLASS by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val DELEGATED_PROPERTY_INSIDE_VALUE_CLASS by error<PsiElement>()
         val VALUE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE by error<KtElement> {
             parameter<ConeKotlinType>("type")
@@ -595,7 +617,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val TYPE_ARGUMENT_ON_TYPED_VALUE_CLASS_EQUALS by error<KtElement>()
         val INNER_CLASS_INSIDE_VALUE_CLASS by error<KtDeclaration>(PositioningStrategy.INNER_MODIFIER)
         val VALUE_CLASS_CANNOT_BE_CLONEABLE by error<KtDeclaration>(PositioningStrategy.INLINE_OR_VALUE_MODIFIER)
-        val VALUE_CLASS_CANNOT_HAVE_CONTEXT_RECEIVERS by error<KtDeclaration>()
+        val VALUE_CLASS_CANNOT_HAVE_CONTEXT_RECEIVERS by error<KtDeclaration>(PositioningStrategy.CONTEXT_KEYWORD)
         val ANNOTATION_ON_ILLEGAL_MULTI_FIELD_VALUE_CLASS_TYPED_TARGET by error<KtAnnotationEntry> {
             parameter<String>("name")
         }
@@ -754,7 +776,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val TYPE_ARGUMENTS_FOR_OUTER_CLASS_WHEN_NESTED_REFERENCED by error<PsiElement>()
         val WRONG_NUMBER_OF_TYPE_ARGUMENTS by error<PsiElement>(PositioningStrategy.TYPE_ARGUMENT_LIST_OR_SELF) {
             parameter<Int>("expectedCount")
-            parameter<FirClassLikeSymbol<*>>("classifier")
+            parameter<FirBasedSymbol<*>>("owner")
         }
         val NO_TYPE_ARGUMENTS_ON_RHS by error<PsiElement> {
             parameter<Int>("expectedCount")
@@ -800,6 +822,10 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             parameter<ConeKotlinType>("type")
         }
         val DEFINITELY_NON_NULLABLE_AS_REIFIED by error<PsiElement>()
+        val TYPE_INTERSECTION_AS_REIFIED by deprecationError<PsiElement>(LanguageFeature.ProhibitIntersectionReifiedTypeParameter) {
+            parameter<FirTypeParameterSymbol>("typeParameter")
+            parameter<Collection<ConeKotlinType>>("types")
+        }
 
         val FINAL_UPPER_BOUND by warning<KtElement> {
             parameter<ConeKotlinType>("type")
@@ -854,11 +880,11 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val CYCLIC_GENERIC_UPPER_BOUND by error<PsiElement>()
 
         val FINITE_BOUNDS_VIOLATION by error<PsiElement>()
-        val FINITE_BOUNDS_VIOLATION_IN_JAVA by warning<PsiElement> {
+        val FINITE_BOUNDS_VIOLATION_IN_JAVA by warning<PsiElement>(PositioningStrategy.DECLARATION_NAME) {
             parameter<List<Symbol>>("containingTypes")
         }
         val EXPANSIVE_INHERITANCE by error<PsiElement>()
-        val EXPANSIVE_INHERITANCE_IN_JAVA by warning<PsiElement> {
+        val EXPANSIVE_INHERITANCE_IN_JAVA by warning<PsiElement>(PositioningStrategy.DECLARATION_NAME) {
             parameter<List<Symbol>>("containingTypes")
         }
 
@@ -1101,7 +1127,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             parameter<FirClassSymbol<*>>("classOrObject")
             parameter<FirCallableSymbol<*>>("invisibleDeclaration")
         }
-        val AMBIGUOUS_ANONYMOUS_TYPE_INFERRED by error<KtDeclaration>(PositioningStrategy.DECLARATION_SIGNATURE) {
+        val AMBIGUOUS_ANONYMOUS_TYPE_INFERRED by error<KtDeclaration>(PositioningStrategy.DECLARATION_NAME) {
             parameter<Collection<ConeKotlinType>>("superTypes")
         }
         val MANY_IMPL_MEMBER_NOT_IMPLEMENTED by error<KtClassOrObject>(PositioningStrategy.DECLARATION_NAME) {
@@ -1155,7 +1181,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
 
     val REDECLARATIONS by object : DiagnosticGroup("Redeclarations") {
         val MANY_COMPANION_OBJECTS by error<KtObjectDeclaration>(PositioningStrategy.COMPANION_OBJECT)
-        val CONFLICTING_OVERLOADS by error<PsiElement>(PositioningStrategy.DECLARATION_SIGNATURE_OR_DEFAULT) {
+        val CONFLICTING_OVERLOADS by error<PsiElement>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS) {
             parameter<Collection<Symbol>>("conflictingOverloads")
         }
         val REDECLARATION by error<KtNamedDeclaration>(PositioningStrategy.NAME_IDENTIFIER) {
@@ -1170,7 +1196,14 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val EXPECT_AND_ACTUAL_IN_THE_SAME_MODULE by error<KtNamedDeclaration>(PositioningStrategy.ACTUAL_DECLARATION_NAME) {
             parameter<Symbol>("declaration")
         }
-        val METHOD_OF_ANY_IMPLEMENTED_IN_INTERFACE by error<PsiElement>()
+        val METHOD_OF_ANY_IMPLEMENTED_IN_INTERFACE by error<PsiElement>(PositioningStrategy.DECLARATION_NAME)
+        val EXTENSION_SHADOWED_BY_MEMBER by warning<PsiElement>(PositioningStrategy.DECLARATION_NAME) {
+            parameter<FirCallableSymbol<*>>("member")
+        }
+        val EXTENSION_FUNCTION_SHADOWED_BY_MEMBER_PROPERTY_WITH_INVOKE by warning<PsiElement>(PositioningStrategy.DECLARATION_NAME) {
+            parameter<FirCallableSymbol<*>>("member")
+            parameter<FirCallableSymbol<*>>("invokeOperator")
+        }
     }
 
     val INVALID_LOCAL_DECLARATIONS by object : DiagnosticGroup("Invalid local declarations") {
@@ -1190,22 +1223,24 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val ABSTRACT_FUNCTION_WITH_BODY by error<KtFunction>(PositioningStrategy.MODALITY_MODIFIER) {
             parameter<FirCallableSymbol<*>>("function")
         }
-        val NON_ABSTRACT_FUNCTION_WITH_NO_BODY by error<KtFunction>(PositioningStrategy.DECLARATION_SIGNATURE) {
+        val NON_ABSTRACT_FUNCTION_WITH_NO_BODY by error<KtFunction>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS) {
             parameter<FirCallableSymbol<*>>("function")
         }
         val PRIVATE_FUNCTION_WITH_NO_BODY by error<KtFunction>(PositioningStrategy.VISIBILITY_MODIFIER) {
             parameter<FirCallableSymbol<*>>("function")
         }
 
-        val NON_MEMBER_FUNCTION_NO_BODY by error<KtFunction>(PositioningStrategy.DECLARATION_SIGNATURE) {
+        val NON_MEMBER_FUNCTION_NO_BODY by error<KtFunction>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS) {
             parameter<FirCallableSymbol<*>>("function")
         }
 
-        val FUNCTION_DECLARATION_WITH_NO_NAME by error<KtFunction>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val ANONYMOUS_FUNCTION_WITH_NAME by error<KtFunction>()
-        val SINGLE_ANONYMOUS_FUNCTION_WITH_NAME by deprecationError<KtFunction>(LanguageFeature.ProhibitSingleNamedFunctionAsExpression)
+        val FUNCTION_DECLARATION_WITH_NO_NAME by error<KtFunction>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val ANONYMOUS_FUNCTION_WITH_NAME by error<KtFunction>(PositioningStrategy.DECLARATION_NAME)
+        val SINGLE_ANONYMOUS_FUNCTION_WITH_NAME by deprecationError<KtFunction>(
+            LanguageFeature.ProhibitSingleNamedFunctionAsExpression,
+            PositioningStrategy.DECLARATION_NAME
+        )
 
-        // TODO: val ANONYMOUS_FUNCTION_WITH_NAME by error1<PsiElement, Name>(SourceElementPositioningStrategies.DECLARATION_NAME)
         val ANONYMOUS_FUNCTION_PARAMETER_WITH_DEFAULT_VALUE by error<KtParameter>(PositioningStrategy.PARAMETER_DEFAULT_VALUE)
         val USELESS_VARARG_ON_PARAMETER by warning<KtParameter>()
         val MULTIPLE_VARARG_PARAMETERS by error<KtParameter>(PositioningStrategy.PARAMETER_VARARG_MODIFIER)
@@ -1246,23 +1281,23 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
 
         val ABSTRACT_PROPERTY_WITH_INITIALIZER by error<KtExpression>()
         val PROPERTY_INITIALIZER_IN_INTERFACE by error<KtExpression>()
-        val PROPERTY_WITH_NO_TYPE_NO_INITIALIZER by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val ABSTRACT_PROPERTY_WITHOUT_TYPE by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val LATEINIT_PROPERTY_WITHOUT_TYPE by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val PROPERTY_WITH_NO_TYPE_NO_INITIALIZER by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val ABSTRACT_PROPERTY_WITHOUT_TYPE by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val LATEINIT_PROPERTY_WITHOUT_TYPE by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
 
-        val MUST_BE_INITIALIZED by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_WARNING by warning<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_OR_BE_FINAL by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_OR_BE_FINAL_WARNING by warning<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_OR_BE_ABSTRACT by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_OR_BE_ABSTRACT_WARNING by warning<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_OR_FINAL_OR_ABSTRACT by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
-        val MUST_BE_INITIALIZED_OR_FINAL_OR_ABSTRACT_WARNING by warning<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val MUST_BE_INITIALIZED by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_WARNING by warning<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_OR_BE_FINAL by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_OR_BE_FINAL_WARNING by warning<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_OR_BE_ABSTRACT by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_OR_BE_ABSTRACT_WARNING by warning<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_OR_FINAL_OR_ABSTRACT by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val MUST_BE_INITIALIZED_OR_FINAL_OR_ABSTRACT_WARNING by warning<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
 
-        val EXTENSION_PROPERTY_MUST_HAVE_ACCESSORS_OR_BE_ABSTRACT by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val EXTENSION_PROPERTY_MUST_HAVE_ACCESSORS_OR_BE_ABSTRACT by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val UNNECESSARY_LATEINIT by warning<KtProperty>(PositioningStrategy.LATEINIT_MODIFIER)
 
-        val BACKING_FIELD_IN_INTERFACE by error<KtProperty>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val BACKING_FIELD_IN_INTERFACE by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val EXTENSION_PROPERTY_WITH_BACKING_FIELD by error<KtExpression>()
         val PROPERTY_INITIALIZER_NO_BACKING_FIELD by error<KtExpression>()
 
@@ -1313,8 +1348,8 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val LATEINIT_FIELD_IN_VAL_PROPERTY by error<KtBackingField>(PositioningStrategy.LATEINIT_MODIFIER)
         val LATEINIT_NULLABLE_BACKING_FIELD by error<KtBackingField>(PositioningStrategy.LATEINIT_MODIFIER)
         val BACKING_FIELD_FOR_DELEGATED_PROPERTY by error<KtBackingField>(PositioningStrategy.FIELD_KEYWORD)
-        val PROPERTY_MUST_HAVE_GETTER by error<KtProperty>()
-        val PROPERTY_MUST_HAVE_SETTER by error<KtProperty>()
+        val PROPERTY_MUST_HAVE_GETTER by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
+        val PROPERTY_MUST_HAVE_SETTER by error<KtProperty>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val EXPLICIT_BACKING_FIELD_IN_INTERFACE by error<KtBackingField>(PositioningStrategy.FIELD_KEYWORD)
         val EXPLICIT_BACKING_FIELD_IN_ABSTRACT_PROPERTY by error<KtBackingField>(PositioningStrategy.FIELD_KEYWORD)
         val EXPLICIT_BACKING_FIELD_IN_EXTENSION by error<KtBackingField>(PositioningStrategy.FIELD_KEYWORD)
@@ -1342,7 +1377,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val EXPECTED_CLASS_CONSTRUCTOR_DELEGATION_CALL by error<KtConstructorDelegationCall>()
         val EXPECTED_CLASS_CONSTRUCTOR_PROPERTY_PARAMETER by error<KtParameter>()
         val EXPECTED_ENUM_CONSTRUCTOR by error<KtConstructor<*>>()
-        val EXPECTED_ENUM_ENTRY_WITH_BODY by error<KtEnumEntry>()
+        val EXPECTED_ENUM_ENTRY_WITH_BODY by error<KtEnumEntry>(PositioningStrategy.EXPECT_ACTUAL_MODIFIER)
         val EXPECTED_PROPERTY_INITIALIZER by error<KtExpression>()
 
         // TODO: need to cover `by` as well as delegate expression
@@ -1376,7 +1411,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             parameter<Map<out ExpectActualCompatibility<Symbol>, Collection<Symbol>>>("compatibility")
         }
 
-        val AMBIGUOUS_EXPECTS by error<KtNamedDeclaration>(PositioningStrategy.INCOMPATIBLE_DECLARATION) {
+        val AMBIGUOUS_EXPECTS by error<KtNamedDeclaration>(PositioningStrategy.EXPECT_ACTUAL_MODIFIER) {
             parameter<Symbol>("declaration")
             parameter<Collection<FirModuleData>>("modules")
         }
@@ -1555,12 +1590,14 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         }
         val INVALID_IF_AS_EXPRESSION by error<KtIfExpression>(PositioningStrategy.IF_EXPRESSION)
         val ELSE_MISPLACED_IN_WHEN by error<KtWhenEntry>(PositioningStrategy.ELSE_ENTRY)
+        val REDUNDANT_ELSE_IN_WHEN by warning<KtWhenEntry>(PositioningStrategy.ELSE_ENTRY)
         val ILLEGAL_DECLARATION_IN_WHEN_SUBJECT by error<KtElement> {
             parameter<String>("illegalReason")
         }
         val COMMA_IN_WHEN_CONDITION_WITHOUT_ARGUMENT by error<PsiElement>(PositioningStrategy.COMMAS)
         val DUPLICATE_BRANCH_CONDITION_IN_WHEN by warning<KtElement>()
         val CONFUSING_BRANCH_CONDITION by deprecationError<PsiElement>(LanguageFeature.ProhibitConfusingSyntaxInWhenBranches)
+        val WRONG_CONDITION_SUGGEST_GUARD by error<PsiElement>(PositioningStrategy.OPERATOR)
 
         val COMMA_IN_WHEN_CONDITION_WITH_WHEN_GUARD by error<PsiElement>(PositioningStrategy.WHEN_GUARD)
         val WHEN_GUARD_WITHOUT_SUBJECT by error<PsiElement>(PositioningStrategy.WHEN_GUARD)
@@ -1600,20 +1637,20 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val NEXT_NONE_APPLICABLE by error<KtExpression> {
             parameter<Collection<FirBasedSymbol<*>>>("candidates")
         }
-        val DELEGATE_SPECIAL_FUNCTION_MISSING by error<KtExpression> {
+        val DELEGATE_SPECIAL_FUNCTION_MISSING by error<KtExpression>(PositioningStrategy.PROPERTY_DELEGATE_BY_KEYWORD) {
             parameter<String>("expectedFunctionSignature")
             parameter<ConeKotlinType>("delegateType")
             parameter<String>("description")
         }
-        val DELEGATE_SPECIAL_FUNCTION_AMBIGUITY by error<KtExpression> {
+        val DELEGATE_SPECIAL_FUNCTION_AMBIGUITY by error<KtExpression>(PositioningStrategy.PROPERTY_DELEGATE_BY_KEYWORD) {
             parameter<String>("expectedFunctionSignature")
             parameter<Collection<FirBasedSymbol<*>>>("candidates")
         }
-        val DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE by error<KtExpression> {
+        val DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE by error<KtExpression>(PositioningStrategy.PROPERTY_DELEGATE_BY_KEYWORD) {
             parameter<String>("expectedFunctionSignature")
             parameter<Collection<FirBasedSymbol<*>>>("candidates")
         }
-        val DELEGATE_SPECIAL_FUNCTION_RETURN_TYPE_MISMATCH by error<KtExpression> {
+        val DELEGATE_SPECIAL_FUNCTION_RETURN_TYPE_MISMATCH by error<KtExpression>(PositioningStrategy.PROPERTY_DELEGATE_BY_KEYWORD) {
             parameter<String>("delegateFunction")
             parameter<ConeKotlinType>("expectedType")
             parameter<ConeKotlinType>("actualType")
@@ -1688,7 +1725,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         )
     }
 
-    val EXTENDED_CHECKERS by object : DiagnosticGroup("Extended checkers") {
+    val EXTRA_CHECKERS by object : DiagnosticGroup("Extra checkers") {
         val REDUNDANT_VISIBILITY_MODIFIER by warning<KtModifierListOwner>(PositioningStrategy.VISIBILITY_MODIFIER)
         val REDUNDANT_MODALITY_MODIFIER by warning<KtModifierListOwner>(PositioningStrategy.MODALITY_MODIFIER)
         val REDUNDANT_RETURN_UNIT_TYPE by warning<KtElement>()
@@ -1795,7 +1832,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             PositioningStrategy.INLINE_FUN_MODIFIER,
         )
 
-        val OVERRIDE_BY_INLINE by warning<KtDeclaration>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val OVERRIDE_BY_INLINE by warning<KtDeclaration>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
 
         val NON_INTERNAL_PUBLISHED_API by error<KtElement>()
 
@@ -1809,10 +1846,10 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
 
         val REIFIED_TYPE_PARAMETER_IN_OVERRIDE by error<KtElement>(PositioningStrategy.REIFIED_MODIFIER)
 
-        val INLINE_PROPERTY_WITH_BACKING_FIELD by error<KtDeclaration>(PositioningStrategy.DECLARATION_SIGNATURE)
+        val INLINE_PROPERTY_WITH_BACKING_FIELD by error<KtDeclaration>(PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS)
         val INLINE_PROPERTY_WITH_BACKING_FIELD_DEPRECATION by deprecationError<KtDeclaration>(
             LanguageFeature.ProhibitInlineModifierOnPrimaryConstructorParameters,
-            PositioningStrategy.DECLARATION_SIGNATURE,
+            PositioningStrategy.CALLABLE_DECLARATION_SIGNATURE_NO_MODIFIERS,
         )
 
         val ILLEGAL_INLINE_PARAMETER_MODIFIER by error<KtElement>(PositioningStrategy.INLINE_PARAMETER_MODIFIER)
@@ -1884,7 +1921,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val DEPRECATED_ACCESS_TO_ENTRIES_PROPERTY by warning<PsiElement>()
         val DEPRECATED_ACCESS_TO_ENUM_ENTRY_PROPERTY_AS_REFERENCE by warning<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED)
         val DEPRECATED_ACCESS_TO_ENTRIES_AS_QUALIFIER by warning<PsiElement>()
-        val DEPRECATED_DECLARATION_OF_ENUM_ENTRY by warning<KtEnumEntry>()
+        val DEPRECATED_DECLARATION_OF_ENUM_ENTRY by warning<KtEnumEntry>(PositioningStrategy.DECLARATION_NAME)
     }
 
     val COMPATIBILITY_ISSUES by object : DiagnosticGroup("Compatibility issues") {
@@ -1914,7 +1951,8 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
 
 private val exposedVisibilityDiagnosticInit: DiagnosticBuilder.() -> Unit = {
     parameter<EffectiveVisibility>("elementVisibility")
-    parameter<Symbol>("restrictingDeclaration")
+    parameter<FirClassLikeSymbol<*>>("restrictingDeclaration")
+    parameter<RelationToType>("relationToType")
     parameter<EffectiveVisibility>("restrictingVisibility")
 }
 

@@ -27,7 +27,7 @@ class MppJvmWithJavaIT : KGPBaseTest() {
     ): Unit = doTestJvmWithJava(gradleVersion, testJavaSupportInJvmTargets = false)
 
     @GradleTest
-    @GradleTestVersions(minVersion = "8.0") // Shadow requires Gradle 8.0+
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_3) // Shadow requires Gradle 8.3+
     @TestMetadata(value = "new-mpp-lib-and-app")
     fun testJavaSupportInJvmTargets(
         gradleVersion: GradleVersion,
@@ -64,8 +64,8 @@ class MppJvmWithJavaIT : KGPBaseTest() {
             }
 
             buildGradle.replaceText(
-                """//id("io.github.goooler.shadow")""",
-                """id("io.github.goooler.shadow") version "${TestVersions.ThirdPartyDependencies.SHADOW_PLUGIN_VERSION}"""",
+                """//id("com.gradleup.shadow")""",
+                """id("com.gradleup.shadow") version "${TestVersions.ThirdPartyDependencies.SHADOW_PLUGIN_VERSION}"""",
             )
             buildGradle.replaceText(
                 """//id("application")""",

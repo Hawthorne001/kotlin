@@ -16,8 +16,13 @@ private val unresolvedConfigurationRegex = "${Regex.escape(UNRESOLVED_MARKER)}(.
 
 fun TestProject.testResolveAllConfigurations(
     subproject: String? = null,
-    withUnresolvedConfigurationNames: TestProject.(unresolvedConfigurations: List<String>, buildResult: BuildResult) -> Unit = { conf, _ ->
-        assertTrue("Unresolved configurations: $conf") { conf.isEmpty() }
+    withUnresolvedConfigurationNames: TestProject.(unresolvedConfigurations: List<String>, buildResult: BuildResult) -> Unit = { conf, buildResult ->
+        assertTrue(
+            """
+            |${buildResult.failedAssertionOutput()}
+            |Unresolved configurations: $conf
+            """.trimMargin()
+        ) { conf.isEmpty() }
     },
 ) {
     val targetProject = subproject?.let { subProject(it) } ?: this
@@ -55,8 +60,15 @@ private fun Project.registerResolveAllConfigurationsTask() {
                         if (project.path == ":") ":" + configuration.name
                         else project.path + ":" + configuration.name
                     try {
-                        println("Resolving $$configurationPath")
-                        configuration.files.forEach { println(">> $configurationPath --> ${it.name}") }
+                        println("Resolving $configurationPath")
+                        configuration.files.forEach {
+                            val path = if (it.extension in setOf("jar", "klib")) {
+                                it.name
+                            } else {
+                                it.relativeTo(project.rootDir).invariantSeparatorsPath
+                            }
+                            println(">> $configurationPath --> $path")
+                        }
                         println("OK, resolved $configurationPath\n")
                     } catch (e: Throwable) {
                         var ex = e as Throwable?

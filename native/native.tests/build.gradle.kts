@@ -12,6 +12,7 @@ dependencies {
     testApi(commonDependency("org.jetbrains.teamcity:serviceMessages"))
     testApi(project(":kotlin-compiler-runner-unshaded"))
     testApi(projectTests(":compiler:tests-common"))
+    testApi(projectTests(":compiler:tests-integration"))
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:test-infrastructure"))
     testApi(project(":native:kotlin-native-utils"))
@@ -20,6 +21,7 @@ dependencies {
     testImplementation(projectTests(":generators:test-generator"))
     testImplementation(project(":compiler:ir.serialization.native"))
     testImplementation(project(":compiler:fir:native"))
+    testImplementation(project(":core:compiler.common.native"))
     testImplementation(project(":kotlin-util-klib-abi"))
     testImplementation(project(":native:swift:swift-export-standalone"))
     testImplementation(projectTests(":kotlin-util-klib-abi"))
@@ -55,7 +57,6 @@ val cachesTest = nativeTest("cachesTest", "caches")
 val klibTest = nativeTest("klibTest", "klib")
 val standaloneTest = nativeTest("standaloneTest", "standalone")
 val gcTest = nativeTest("gcTest", "gc")
-val swiftExportTest = nativeTest("swiftExportTest", "swiftexport")
 
 val testTags = findProperty("kotlin.native.tests.tags")?.toString()
 // Note: arbitrary JUnit tag expressions can be used in this property.
@@ -68,6 +69,7 @@ val test by nativeTest(
         JdkMajorVersion.JDK_1_8,  // required in CompilerOutputTest via AbstractCliTest.getNormalizedCompilerOutput
         JdkMajorVersion.JDK_11_0, // required in CompilerOutputTest via AbstractCliTest.getNormalizedCompilerOutput
         JdkMajorVersion.JDK_17_0, // required in CompilerOutputTest via AbstractCliTest.getNormalizedCompilerOutput
+        JdkMajorVersion.JDK_21_0,
     )
 ) {
     options {

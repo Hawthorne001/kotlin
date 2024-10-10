@@ -26,6 +26,9 @@ import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 
 private val STATIC_THIS_PARAMETER by IrDeclarationOriginImpl
 
+/**
+ * Extracts private members from classes.
+ */
 class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTransformer {
 
     private var IrFunction.correspondingStatic by context.mapping.privateMemberToCorrespondingStatic
@@ -69,7 +72,6 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
         staticFunction.valueParameters = staticFunction.valueParameters memoryOptimizedPlus buildValueParameter(staticFunction) {
             origin = STATIC_THIS_PARAMETER
             name = Name.identifier("\$this")
-            index = 0
             type = function.dispatchReceiverParameter!!.type
         }
 
@@ -77,7 +79,7 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
 
         staticFunction.valueParameters = staticFunction.valueParameters memoryOptimizedPlus function.valueParameters.map {
             // TODO better way to avoid copying default value
-            it.copyTo(staticFunction, index = it.index + 1, defaultValue = null)
+            it.copyTo(staticFunction, defaultValue = null)
         }
 
         val oldParameters =
@@ -154,7 +156,7 @@ class PrivateMemberBodiesLowering(val context: JsIrBackendContext) : BodyLowerin
                             expression.startOffset, expression.endOffset,
                             expression.type,
                             it.symbol, expression.typeArgumentsCount,
-                            expression.valueArgumentsCount, expression.reflectionTarget, expression.origin
+                            expression.reflectionTarget, expression.origin
                         )
                     }
                 } ?: expression
@@ -188,7 +190,6 @@ class PrivateMemberBodiesLowering(val context: JsIrBackendContext) : BodyLowerin
                     expression.type,
                     staticTarget.symbol,
                     typeArgumentsCount = expression.typeArgumentsCount,
-                    valueArgumentsCount = expression.valueArgumentsCount + 1,
                     origin = expression.origin,
                     superQualifierSymbol = expression.superQualifierSymbol
                 )

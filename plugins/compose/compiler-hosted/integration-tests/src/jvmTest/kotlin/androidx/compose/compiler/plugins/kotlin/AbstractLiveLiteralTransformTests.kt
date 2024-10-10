@@ -30,7 +30,7 @@ import org.jetbrains.kotlin.ir.util.DeepCopySymbolRemapper
 import org.junit.Assert.assertEquals
 
 abstract class AbstractLiveLiteralTransformTests(
-    useFir: Boolean
+    useFir: Boolean,
 ) : AbstractIrTransformTest(useFir) {
     @OptIn(ExperimentalCompilerApi::class)
     private fun computeKeys(files: List<SourceFile>): List<String> {
@@ -55,9 +55,8 @@ abstract class AbstractLiveLiteralTransformTests(
                     object : IrGenerationExtension {
                         override fun generate(
                             moduleFragment: IrModuleFragment,
-                            pluginContext: IrPluginContext
+                            pluginContext: IrPluginContext,
                         ) {
-                            val symbolRemapper = DeepCopySymbolRemapper()
                             val keyVisitor = DurableKeyVisitor(builtKeys)
                             val stabilityInferencer = StabilityInferencer(
                                 pluginContext.moduleDescriptor,
@@ -69,7 +68,6 @@ abstract class AbstractLiveLiteralTransformTests(
                                 liveLiteralsV2Enabled,
                                 keyVisitor,
                                 pluginContext,
-                                symbolRemapper,
                                 ModuleMetricsImpl("temp", featureFlags) { stabilityInferencer.stabilityOf(it) },
                                 stabilityInferencer,
                                 featureFlags
@@ -120,7 +118,7 @@ abstract class AbstractLiveLiteralTransformTests(
     protected fun assertTransform(
         unchecked: String,
         checked: String,
-        dumpTree: Boolean = false
+        dumpTree: Boolean = false,
     ) = verifyGoldenComposeIrTransform(
         """
             import androidx.compose.runtime.Composable

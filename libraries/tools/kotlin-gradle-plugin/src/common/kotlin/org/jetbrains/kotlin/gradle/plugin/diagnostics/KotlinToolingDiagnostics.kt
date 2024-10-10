@@ -563,45 +563,6 @@ object KotlinToolingDiagnostics {
         )
     }
 
-    object KotlinDefaultHierarchyFallbackNativeTargetShortcutUsageDetected : ToolingDiagnosticFactory(WARNING) {
-        internal operator fun invoke(project: Project, trace: NativeTargetShortcutTrace) = build(
-            """
-                The Default Kotlin Hierarchy Template was not applied to '${project.displayName}':
-                Deprecated '${trace.shortcut}()' shortcut was used:
-                
-                  kotlin {
-                      ${trace.shortcut}()
-                  }
-                
-                Please declare the required targets explicitly:
-                
-                  kotlin {
-                      ${trace.shortcut}X64()
-                      ${trace.shortcut}Arm64()
-                      ${trace.shortcut}SimulatorArm64() /* <- Note: Was not previously applied */
-                      /* ... */
-                  }
-                
-                After that, replace `by getting` with static accessors:
-                
-                  sourceSets {
-                      commonMain { ... }
-                      
-                      ${trace.shortcut}Main {
-                          dependencies { ... }
-                      }
-                  }
-                
-                To suppress the 'Default Hierarchy Template' add
-                    '$KOTLIN_MPP_APPLY_DEFAULT_HIERARCHY_TEMPLATE=false'
-                to your gradle.properties
-                
-                Learn more about hierarchy templates: https://kotl.in/hierarchy-template
-            """.trimIndent(),
-            throwable = trace
-        )
-    }
-
     object KotlinDefaultHierarchyFallbackIllegalTargetNames : ToolingDiagnosticFactory(WARNING) {
         operator fun invoke(project: Project, illegalTargetNamesUsed: Iterable<String>) = build(
             """
@@ -642,7 +603,7 @@ object KotlinToolingDiagnostics {
         )
     }
 
-    private val presetsDeprecationSeverity = ToolingDiagnostic.Severity.WARNING
+    private val presetsDeprecationSeverity = ToolingDiagnostic.Severity.ERROR
 
     object TargetFromPreset : ToolingDiagnosticFactory(presetsDeprecationSeverity) {
         const val DEPRECATION_MESSAGE = "The targetFromPreset() $PRESETS_DEPRECATION_MESSAGE_SUFFIX"
@@ -675,18 +636,20 @@ object KotlinToolingDiagnostics {
         )
     }
 
-    object KotlinTargetAlreadyDeclared : ToolingDiagnosticFactory(WARNING) {
+    abstract class KotlinTargetAlreadyDeclared(severity: ToolingDiagnostic.Severity) : ToolingDiagnosticFactory(severity) {
         operator fun invoke(targetDslFunctionName: String) = build(
             """
                 Kotlin Target '$targetDslFunctionName()' is already declared.
 
-                Declaring multiple Kotlin Targets of the same type is not recommended
-                and will become an error in the upcoming Kotlin releases.
+                Declaring multiple Kotlin Targets of the same type is not supported.
                 
                 Read https://kotl.in/declaring-multiple-targets for details.
             """.trimIndent()
         )
     }
+
+    object KotlinTargetAlreadyDeclaredWarning : KotlinTargetAlreadyDeclared(WARNING)
+    object KotlinTargetAlreadyDeclaredError : KotlinTargetAlreadyDeclared(ERROR)
 
     object KotlinCompilationSourceDeprecation : ToolingDiagnosticFactory(WARNING) {
         operator fun invoke(trace: Throwable?) = build(
@@ -937,6 +900,19 @@ object KotlinToolingDiagnostics {
         )
     }
 
+    object ExperimentalFeatureWarning : ToolingDiagnosticFactory(WARNING) {
+        operator fun invoke(featureName: String, youtrackUrl: String) = build(
+            """
+                Experimental Feature Notice ⚠️
+                
+                $featureName is an experimental feature and subject to change in any future releases.
+                It may not function as you expect and you may encounter bugs. Use it at your own risk.
+                
+                Thank you for your understanding. We would appreciate your feedback on this feature in YouTrack $youtrackUrl.
+            """.trimIndent()
+        )
+    }
+
     object DeprecatedGradleProperties : ToolingDiagnosticFactory(WARNING) {
         operator fun invoke(usedDeprecatedProperty: String): ToolingDiagnostic {
             return build(
@@ -975,15 +951,6 @@ object KotlinToolingDiagnostics {
             )
     }
 
-    object DeprecatedKotlinAbiSnapshotDiagnostic : ToolingDiagnosticFactory(WARNING) {
-        operator fun invoke(): ToolingDiagnostic =
-            build(
-                "'${PropertiesProvider.PropertyNames.KOTLIN_ABI_SNAPSHOT}' property is deprecated and will be removed soon.\n" +
-                        "By default this type of incremental compilation will not be supported.\n" +
-                        "Please remove '${PropertiesProvider.PropertyNames.KOTLIN_ABI_SNAPSHOT}' usages from 'gradle.properties' file.\n"
-            )
-    }
-
     object DeprecatedJvmHistoryBasedIncrementalCompilationDiagnostic : ToolingDiagnosticFactory(WARNING) {
         operator fun invoke(): ToolingDiagnostic =
             build(
@@ -1009,6 +976,42 @@ object KotlinToolingDiagnostics {
                 """.trimMargin()
             )
         }
+    }
+
+    object XcodeUserScriptSandboxingDiagnostic : ToolingDiagnosticFactory(FATAL) {
+        operator fun invoke(userScriptSandboxingEnabled: Boolean) = build(
+            """
+            ${if (userScriptSandboxingEnabled) "You" else "BUILT_PRODUCTS_DIR is not accessible, probably you"} have sandboxing for user scripts enabled.
+            In your Xcode project, navigate to "Build Setting",
+            and under "Build Options" set "User script sandboxing" (ENABLE_USER_SCRIPT_SANDBOXING) to "NO".
+            Then, run "./gradlew --stop" to stop the Gradle daemon
+            For more information, see documentation: https://kotl.in/iq4uke
+            """.trimIndent()
+        )
+    }
+
+    object UnsupportedTargetShortcutError : ToolingDiagnosticFactory(ERROR) {
+        operator fun invoke(shortcutName: String, explicitTargets: String, trace: Throwable) = build(
+            """
+            The $shortcutName target shortcut is deprecated and no longer supported.
+            Please explicitly declare your targets using:
+            
+            """.trimIndent() + explicitTargets + """
+                
+            For a complete list of supported targets, refer to the documentation: https://kotl.in/6ixl2f
+            """.trimIndent(),
+            throwable = trace
+        )
+    }
+
+    object ProjectIsolationIncompatibleWithIncludedBuildsWithOldKotlinVersion: ToolingDiagnosticFactory(WARNING) {
+        operator fun invoke(dependency: String, includedProjectPath: String): ToolingDiagnostic = build(
+            """
+                Dependency '$dependency' resolved into included build project '$includedProjectPath'. 
+                However Kotlin Multiplatform can't process such dependency with enabled Project Isolation support.
+                Please consider upgrading Kotlin Version to the latest one in '$includedProjectPath' project.                               
+            """.trimIndent()
+        )
     }
 }
 

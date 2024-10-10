@@ -97,7 +97,7 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         }
 
         resolvedTypeRef.coneType.forEachType {
-            it.type.customAnnotations.forEach { typeArgumentAnnotation ->
+            it.customAnnotations.forEach { typeArgumentAnnotation ->
                 typeArgumentAnnotation.accept(this, data)
             }
         }
@@ -261,15 +261,6 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         booleanOperatorExpression,
         data,
         FirExpressionsResolveTransformer::transformBooleanOperatorExpression,
-    )
-
-    override fun transformDesugaredAssignmentValueReferenceExpression(
-        desugaredAssignmentValueReferenceExpression: FirDesugaredAssignmentValueReferenceExpression,
-        data: ResolutionMode,
-    ): FirStatement = expressionTransformation(
-        desugaredAssignmentValueReferenceExpression,
-        data,
-        FirExpressionsResolveTransformer::transformDesugaredAssignmentValueReferenceExpression,
     )
 
     override fun transformVariableAssignment(

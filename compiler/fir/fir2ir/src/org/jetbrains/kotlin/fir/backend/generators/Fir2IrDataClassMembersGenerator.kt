@@ -37,6 +37,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.Companion.GENERATED_DATA_CLASS_MEMBER
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.Companion.GENERATED_MULTI_FIELD_VALUE_CLASS_MEMBER
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.Companion.GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER
+import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
@@ -167,7 +168,7 @@ class Fir2IrDataClassMembersGenerator(
             isOperator: Boolean = false,
         ): IrSimpleFunction {
             val symbol = c.declarationStorage.createFunctionSymbol()
-            return c.irFactory.createSimpleFunction(
+            return IrFactoryImpl.createSimpleFunction(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
                 origin = origin,
@@ -198,8 +199,8 @@ class Fir2IrDataClassMembersGenerator(
             }
         }
 
-        private fun createSyntheticIrParameter(irFunction: IrFunction, name: Name, type: IrType, index: Int = 0): IrValueParameter =
-            c.irFactory.createValueParameter(
+        private fun createSyntheticIrParameter(irFunction: IrFunction, name: Name, type: IrType): IrValueParameter =
+            IrFactoryImpl.createValueParameter(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
                 origin = IrDeclarationOrigin.DEFINED,
@@ -207,7 +208,6 @@ class Fir2IrDataClassMembersGenerator(
                 type = type,
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = index,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
@@ -280,7 +280,8 @@ class Fir2IrDataClassGeneratedMemberBodyGenerator(private val irBuiltins: IrBuil
             irClass,
             irClass.kotlinFqName,
             origin,
-            forbidDirectFieldAccess = false
+            forbidDirectFieldAccess = false,
+            generateBodies = !configuration.skipBodies,
         ) {
             override fun generateSyntheticFunctionParameterDeclarations(irFunction: IrFunction) {
                 // TODO

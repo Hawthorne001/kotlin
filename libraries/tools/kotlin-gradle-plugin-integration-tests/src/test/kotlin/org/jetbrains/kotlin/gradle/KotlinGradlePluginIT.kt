@@ -18,6 +18,8 @@ package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.cliArgument
 import org.jetbrains.kotlin.gradle.tasks.USING_JVM_INCREMENTAL_COMPILATION_MESSAGE
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.checkBytecodeContains
@@ -31,7 +33,10 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.zip.ZipFile
 import kotlin.io.path.*
-import kotlin.test.*
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @DisplayName("Basic Kotlin/JVM plugin tests")
 @JvmGradlePluginTests
@@ -287,22 +292,22 @@ class KotlinGradleIT : KGPBaseTest() {
 
             // check the arguments are not passed by default (they are inferred by the compiler)
             build("clean", "compileKotlin") {
-                assertOutputDoesNotContain("-language-version")
-                assertOutputDoesNotContain("-api-version")
+                assertOutputDoesNotContain(CommonCompilerArguments::languageVersion.cliArgument)
+                assertOutputDoesNotContain(CommonCompilerArguments::apiVersion.cliArgument)
                 assertNoBuildWarnings()
             }
 
             // check the arguments are always passed if specified explicitly
             updateBuildGradle("1.6", "1.6")
             build("clean", "compileKotlin") {
-                assertOutputContains("-language-version 1.6")
-                assertOutputContains("-api-version 1.6")
+                assertOutputContains("${CommonCompilerArguments::languageVersion.cliArgument} 1.6")
+                assertOutputContains("${CommonCompilerArguments::apiVersion.cliArgument} 1.6")
             }
 
             updateBuildGradle("1.7", "1.7")
             build("clean", "compileKotlin") {
-                assertOutputContains("-language-version 1.7")
-                assertOutputContains("-api-version 1.7")
+                assertOutputContains("${CommonCompilerArguments::languageVersion.cliArgument} 1.7")
+                assertOutputContains("${CommonCompilerArguments::apiVersion.cliArgument} 1.7")
             }
         }
     }
@@ -485,6 +490,7 @@ class KotlinGradleIT : KGPBaseTest() {
     }
 
     @DisplayName("KGP dependencies in buildSrc module")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_2) // FIXME: KT-71711
     @GradleTest
     fun testKotlinPluginDependenciesInBuildSrc(gradleVersion: GradleVersion) {
         project("kotlinPluginDepsInBuildSrc", gradleVersion) {
@@ -653,7 +659,7 @@ class KotlinGradleIT : KGPBaseTest() {
                         val expectedLine = output.lines().find {
                             it.contains(
                                 "No matching variant of project :projA was found. The consumer was configured to find an API of a library " +
-                                        "compatible with Java 8, preferably in the form of class files, " +
+                                        "compatible with Java 17, preferably in the form of class files, " +
                                         "preferably optimized for standard JVMs, " +
                                         "and its dependencies declared externally, " +
                                         "as well as attribute 'org.jetbrains.kotlin.platform.type' with value 'jvm', "
@@ -676,7 +682,7 @@ class KotlinGradleIT : KGPBaseTest() {
                             it.trimStart().startsWith(
                                 "> No matching variant of project :projA was found. " +
                                         "The consumer was configured to find a library for use during compile-time, " +
-                                        "compatible with Java 8, preferably in the form of class files, " +
+                                        "compatible with Java 17, preferably in the form of class files, " +
                                         "preferably optimized for standard JVMs, and its dependencies declared externally, "
                             )
                         }
@@ -703,7 +709,7 @@ class KotlinGradleIT : KGPBaseTest() {
                         val expectedLine = output.lines().find {
                             it.contains(
                                 "No matching variant of project :projA was found. The consumer was configured to find an API of a library " +
-                                        "compatible with Java 8, preferably in the form of class files, " +
+                                        "compatible with Java 17, preferably in the form of class files, " +
                                         "preferably optimized for standard JVMs, " +
                                         "and its dependencies declared externally, " +
                                         "as well as attribute 'org.jetbrains.kotlin.platform.type' with value 'jvm', "
@@ -726,7 +732,7 @@ class KotlinGradleIT : KGPBaseTest() {
                             it.contains(
                                 "No matching variant of project :projA was found. " +
                                         "The consumer was configured to find a library for use during compile-time, " +
-                                        "compatible with Java 8, preferably in the form of class files, " +
+                                        "compatible with Java 17, preferably in the form of class files, " +
                                         "preferably optimized for standard JVMs, and its dependencies declared externally, "
                             )
                         }

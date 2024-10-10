@@ -46,11 +46,6 @@ val KotlinBuildProperties.isNativeRuntimeDebugInfoEnabled: Boolean
 val KotlinBuildProperties.junit5NumberOfThreadsForParallelExecution: Int?
     get() = (getOrNull("kotlin.test.junit5.maxParallelForks") as? String)?.toInt()
 
-// Enabling publishing docs jars only on CI build by default
-// Currently dokka task runs non-incrementally and takes big amount of time
-val KotlinBuildProperties.publishGradlePluginsJavadoc: Boolean
-    get() = getBoolean("kotlin.build.gradle.publish.javadocs", isTeamcityBuild)
-
 val KotlinBuildProperties.useFirWithLightTree: Boolean
     get() = getBoolean("kotlin.build.useFirLT")
 
@@ -65,3 +60,19 @@ val KotlinBuildProperties.limitTestTasksConcurrency: Boolean
 
 val KotlinBuildProperties.konanDataDir: String?
     get() = getOrNull("konan.data.dir") as String?
+
+/**
+ * If `true`, `:kotlin-native:platformLibs` will compile platform libraries klibs without parallelism.
+ */
+val KotlinBuildProperties.limitPlatformLibsCompilationConcurrency: Boolean
+    get() = !getBoolean("kotlin.native.platformLibs.parallel", true)
+
+
+/**
+ * If `true`, `:kotlin-native:platformLibs` will build platform libraries caches without parallelism.
+ */
+val KotlinBuildProperties.limitPlatformLibsCacheBuildingConcurrency: Boolean
+    get() {
+        // if platform libs compilation parallelism is disabled, also disable parallel cache building by default.
+        return !getBoolean("kotlin.native.platformLibs.parallelCaches", !limitPlatformLibsCompilationConcurrency)
+    }

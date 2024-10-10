@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
+import org.jetbrains.kotlin.backend.jvm.classNameOverride
 import org.jetbrains.kotlin.backend.jvm.createJvmFileFacadeClass
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
@@ -18,10 +19,10 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.load.kotlin.FacadeClassSource
 
-@PhaseDescription(
-    name = "ExternalPackageParentPatcherLowering",
-    description = "Replace parent from package fragment to FileKt class for top-level callables (K2 only)"
-)
+/**
+ * Replaces parent from package fragment to FileKt class for top-level callables (K2 only).
+ */
+@PhaseDescription(name = "ExternalPackageParentPatcherLowering")
 internal class ExternalPackageParentPatcherLowering(val context: JvmBackendContext) : FileLoweringPass {
     override fun lower(irFile: IrFile) {
         if (context.config.useFir) {
@@ -59,7 +60,7 @@ internal class ExternalPackageParentPatcherLowering(val context: JvmBackendConte
                 deserializeIr = { irClass -> deserializeTopLevelClass(irClass) }
             ).also {
                 it.createParameterDeclarations()
-                context.classNameOverride[it] = facadeName
+                it.classNameOverride = facadeName
             }
         }
 

@@ -27,7 +27,8 @@ fun CompilerConfiguration.setupCommonArguments(
     val messageCollector = getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
     put(CommonConfigurationKeys.DISABLE_INLINE, arguments.noInline)
-    put(CommonConfigurationKeys.USE_FIR_EXTENDED_CHECKERS, arguments.useFirExtendedCheckers)
+    put(CommonConfigurationKeys.USE_FIR_EXTRA_CHECKERS, arguments.extraWarnings)
+    put(CommonConfigurationKeys.USE_FIR_EXPERIMENTAL_CHECKERS, arguments.useFirExperimentalCheckers)
     put(CommonConfigurationKeys.METADATA_KLIB, arguments.metadataKlib)
     putIfNotNull(CLIConfigurationKeys.INTELLIJ_PLUGIN_ROOT, arguments.intellijPluginRoot)
     put(CommonConfigurationKeys.REPORT_OUTPUT_FILES, arguments.reportOutputFiles)
@@ -95,8 +96,8 @@ private fun switchToFallbackModeIfNecessary(arguments: CommonCompilerArguments, 
     val isK2 = (arguments.languageVersion?.startsWith('2') ?: (LanguageVersion.LATEST_STABLE >= LanguageVersion.KOTLIN_2_0))
     val isKaptUsed = arguments.pluginOptions?.any { it.startsWith("plugin:org.jetbrains.kotlin.kapt3") } == true
     when {
-        isK2 && isKaptUsed && !arguments.useKapt4 -> {
-            warn("Kapt currently doesn't support language version 2.0+. Falling back to 1.9.")
+        isK2 && isKaptUsed && !arguments.useK2Kapt -> {
+            warn("Support for language version 2.0+ in kapt is in Alpha and must be enabled explicitly. Falling back to 1.9.")
             arguments.languageVersion = LanguageVersion.KOTLIN_1_9.versionString
             if (arguments.apiVersion?.startsWith("2") == true) {
                 arguments.apiVersion = ApiVersion.KOTLIN_1_9.versionString
@@ -105,9 +106,9 @@ private fun switchToFallbackModeIfNecessary(arguments: CommonCompilerArguments, 
             arguments.skipPrereleaseCheck = true
             arguments.allowUnstableDependencies = true
         }
-        arguments.useKapt4 -> warn(
-            if (isK2) "K2 kapt is an experimental feature. Use with caution."
-            else "-Xuse-kapt4 flag can be only used with language version 2.0+."
+        arguments.useK2Kapt -> warn(
+            if (isK2) "K2 kapt is in Alpha. Use with caution."
+            else "-Xuse-k2-kapt flag can be only used with language version 2.0+."
         )
     }
 }

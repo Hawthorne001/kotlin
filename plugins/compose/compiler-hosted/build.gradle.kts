@@ -1,5 +1,3 @@
-import org.gradle.api.artifacts.dsl.DependencyHandler
-
 plugins {
     kotlin("jvm")
 }
@@ -8,7 +6,7 @@ repositories {
     if (!kotlinBuildProperties.isTeamcityBuild) {
         androidXMavenLocal(androidXMavenLocalPath)
     }
-    androidxSnapshotRepo(libs.versions.compose.snapshot.id.get())
+    androidxSnapshotRepo(composeRuntimeSnapshot.versions.snapshot.id.get())
     composeGoogleMaven(libs.versions.compose.stable.get())
 }
 
@@ -47,8 +45,9 @@ dependencies {
     testImplementation(projectTests(":compiler:tests-common-new"))
 
     // runtime tests
-    testImplementation(composeRuntime())
-    testImplementation(composeRuntimeTestUtils())
+    testImplementation(composeRuntime()) { isTransitive = false }
+    testImplementation(composeRuntimeTestUtils()) { isTransitive = false }
+    testImplementation(libs.androidx.collections)
 
     // other compose
     testImplementationArtifactOnly(compose("foundation", "foundation"))
